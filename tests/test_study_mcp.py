@@ -220,13 +220,21 @@ def test_study_mcp_lists_imported_sources_and_transcript_ids(tmp_path, monkeypat
         "id": "source-1", "title": "Week 1 captions", "material_type": "transcript",
         "format": "vtt", "chunks": [{"text": "caption"}],
     })
+    study_routes._write_json(sources / "source-2.json", {
+        "id": "source-2", "title": "Week 1 slides", "material_type": "slides",
+        "format": "pptx", "chunks": [{"text": "slide"}],
+    })
 
     result = asyncio.run(study_server.call_tool("study_list_sources", {
         "_odysseus_owner": "alice", "module_id": "law",
+        "source_offset": 0, "source_limit": 1,
     }))
     payload = json.loads(result[0].text)
 
-    assert payload["count"] == 1
-    assert payload["sources"][0]["id"] == "source-1"
+    assert payload["sources_total"] == 2
+    assert payload["source_offset"] == 0
+    assert payload["has_more_sources"] is True
+    assert len(payload["sources"]) == 1
+    assert payload["sources"][0]["id"] == "source-2"
     assert payload["sources"][0]["material_type"] == "transcript"
     assert "chunks" not in payload["sources"][0]

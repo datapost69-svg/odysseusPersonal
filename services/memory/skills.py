@@ -89,6 +89,26 @@ class SkillsManager:
         self.usage_file = os.path.join(self.skills_root, "_usage.json")
         self.legacy_file = os.path.join(data_dir, "skills.json")  # back-compat
         os.makedirs(self.skills_root, exist_ok=True)
+        self._seed_bundled_skills()
+
+    def _seed_bundled_skills(self) -> None:
+        """Copy bundled first-party skills into the writable user skill store once."""
+        import shutil
+        from pathlib import Path
+        app_root = Path(__file__).resolve().parents[2]
+        bundled_root = app_root / "skills"
+        if not bundled_root.is_dir():
+            return
+        for source in bundled_root.glob("**/SKILL.md"):
+            try:
+                relative = source.relative_to(bundled_root)
+                destination = Path(self.skills_root) / relative
+                if destination.exists():
+                    continue
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source, destination)
+            except OSError:
+                logger.warning("Could not seed bundled skill %s", source.name, exc_info=True)
 
     # ----------------------------------------------------------------------
     # Path helpers

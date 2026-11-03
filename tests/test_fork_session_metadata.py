@@ -14,9 +14,10 @@ import routes.history_routes as mod
 
 
 class _FakeSession:
-    def __init__(self, name="", owner=None):
+    def __init__(self, name="", owner=None, isolated_memory=False):
         self.name = name
         self.owner = owner
+        self.isolated_memory = isolated_memory
         self.endpoint_url = ""
         self.model = ""
         self.history = []
@@ -40,8 +41,9 @@ class _FakeSessionManager:
         return self.sessions[session_id]
 
     def create_session(self, session_id=None, name=None, endpoint_url=None,
-                       model=None, rag=False, owner=None, endpoint_id=None):
-        self.created = _FakeSession(name=name, owner=owner)
+                       model=None, rag=False, owner=None, endpoint_id=None,
+                       isolated_memory=False):
+        self.created = _FakeSession(name=name, owner=owner, isolated_memory=isolated_memory)
         self.created.endpoint_id = endpoint_id
         return self.created
 

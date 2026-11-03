@@ -17,7 +17,7 @@ The Python dependency `pytesseract` is only a bridge to the OCR engine. It does 
 1. Install the Windows build of Tesseract OCR on the machine running Odysseus.
 2. Ensure the Tesseract executable is on the Windows `PATH`, or set the environment variable `ODYSSEUS_TESSERACT_CMD` to the full path of `tesseract.exe`.
 3. Restart Odysseus so the process receives the updated environment.
-4. If a different OCR language is required, install that Tesseract language data and set `ODYSSEUS_STUDY_OCR_LANG` (default: `eng`).
+4. If a different OCR language is required, install that Tesseract language data and set `ODYSSEUS_STUDY_OCR_LANG` (default: `eng`). PDF rendering defaults to 220 DPI; set `ODYSSEUS_STUDY_OCR_DPI` between 150 and 400 to trade speed for recognition quality.
 
 If Tesseract is unavailable, text-native documents can still be imported. Scanned PDF pages without a text layer cannot be imported until OCR is available; PowerPoint source metadata reports when embedded-image OCR was skipped.
 

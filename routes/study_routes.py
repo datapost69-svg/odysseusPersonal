@@ -159,7 +159,7 @@ async def import_audio(
             "text": " ".join(segment["text"] for segment in group),
         })
     try:
-        _index_records(root, module_id, transcript_chunks)
+        await run_in_threadpool(_index_records, root, module_id, transcript_chunks)
     except Exception as exc:
         logger.exception("Local semantic indexing failed for lecture transcript")
         raise HTTPException(503, f"Local semantic indexing is unavailable: {exc}")
@@ -442,11 +442,13 @@ async def import_source(
     }
     _write_json(folder / f"{source_id}.json", record)
     try:
-        _index_records(root, module_id, [
-            {"source_id": source_id, "source_type": "document", "title": record["title"],
-             "location": chunk["location"], "text": chunk["text"]}
-            for chunk in chunks
-        ])
+        await run_in_threadpool(
+            _index_records, root, module_id, [
+                {"source_id": source_id, "source_type": "document", "title": record["title"],
+                 "location": chunk["location"], "text": chunk["text"]}
+                for chunk in chunks
+            ]
+        )
     except Exception as exc:
         logger.exception("Local semantic indexing failed for imported study source")
         raise HTTPException(503, f"Local semantic indexing is unavailable: {exc}")

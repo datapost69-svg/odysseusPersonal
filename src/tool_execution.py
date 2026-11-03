@@ -2489,7 +2489,15 @@ async def _execute_tool_block_impl(
                 elif tool == "mcp__image_gen__generate_image" or tool.startswith("mcp__image_gen__"):
                     if owner:
                         args["_odysseus_owner"] = owner
-                result = _normalize_mcp_text_error(await dispatched(mcp.call_tool(tool, args)))
+                elif tool.startswith("mcp__study__"):
+                    # Study storage is owner-isolated; the model cannot choose this identity.
+                    if owner:
+                        args["_odysseus_owner"] = owner
+                    else:
+                        result = {"error": "Authenticated owner context is required for Study tools.", "exit_code": 1}
+                        args = None
+                if args is not None:
+                    result = _normalize_mcp_text_error(await dispatched(mcp.call_tool(tool, args)))
                 if tool == "mcp__image_gen__generate_image" or tool.startswith("mcp__image_gen__"):
                     _promote_image_fields(result)
         else:

@@ -29,6 +29,10 @@ grpcio>=1.84.1
 fastembed>=0.9.1
 youtube-transcript-api
 yt-dlp
+# Local PDF rendering for completed Study notes.
+reportlab
+# Local OCR bridge; the Tesseract executable is installed separately on-device.
+pytesseract
 # Markdown rendering for research reports (src/visual_report.py).
 # Imported at module-top so it's a hard core dep, not optional.
 markdown
@@ -66,3 +70,7 @@ httpx2
 # create_engine() and raises ModuleNotFoundError if missing. -binary avoids
 # needing libpq-dev/pg_config on the host/image to compile it.
 psycopg2-binary
+
+# Local study source extraction (all parsing runs on-device).
+python-docx
+python-pptx

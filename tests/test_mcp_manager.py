@@ -110,3 +110,39 @@ def test_cancelled_http_connect_closes_transport(monkeypatch):
 
     asyncio.run(run())
     assert closes == [True]
+
+
+def test_study_is_a_builtin_server_with_native_agent_tool_schemas():
+    mgr = McpManager()
+    mgr._tools["study"] = [
+        {"name": "study_search_material", "description": "Search local study material",
+         "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}}},
+        {"name": "study_save_notes", "description": "Save agent-authored notes",
+         "input_schema": {"type": "object", "properties": {"module_id": {"type": "string"}}}},
+    ]
+    mgr._connections["study"] = {"status": "connected", "name": "Built-in: Local Study Library"}
+
+    assert mgr.is_builtin("study") is True
+
+    schemas = mgr.get_all_openai_schemas()
+    names = {row["function"]["name"] for row in schemas}
+    assert "mcp__study__study_search_material" in names
+    assert "mcp__study__study_save_notes" in names
+
+    prompt = mgr.get_tool_descriptions_for_prompt()
+    assert "mcp__study__study_search_material" in prompt
+    assert "mcp__study__study_save_notes" in prompt
+
+
+def test_study_note_saving_is_write_blocked_in_plan_mode():
+    mgr = McpManager()
+    mgr._tools["study"] = [
+        {"name": "study_search_material", "description": "Search"},
+        {"name": "study_save_notes", "description": "Generate and save"},
+    ]
+
+    disabled, qualified = mgr.plan_mode_blocked_mcp()
+
+    assert "study_search_material" not in disabled.get("study", set())
+    assert "study_save_notes" in disabled["study"]
+    assert "mcp__study__study_save_notes" in qualified

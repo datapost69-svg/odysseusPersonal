@@ -1,0 +1,240 @@
+import asyncio
+import json
+from pathlib import Path
+
+import pytest
+
+from routes import study_routes
+
+
+def test_study_mcp_tools_require_injected_owner():
+    from mcp_servers import study_server
+
+    with pytest.raises(ValueError, match="authenticated owner"):
+        study_server._owner({})
+
+
+def test_study_mcp_lists_only_authenticated_owner_modules(tmp_path, monkeypatch):
+    from mcp_servers import study_server
+
+    monkeypatch.setattr(study_routes, "DATA_DIR", str(tmp_path))
+    alice_root = study_routes._owner_root("alice")
+    bob_root = study_routes._owner_root("bob")
+    study_routes._write_json(alice_root / "modules.json", [{"id": "law", "name": "Public Law"}])
+    study_routes._write_json(bob_root / "modules.json", [{"id": "other", "name": "Private Library"}])
+
+    result = asyncio.run(study_server.call_tool("study_list_modules", {"_odysseus_owner": "alice"}))
+    payload = json.loads(result[0].text)
+
+    assert payload["modules"] == [{"id": "law", "name": "Public Law"}]
+    assert "Private Library" not in result[0].text
+
+
+def test_study_mcp_search_is_module_scoped(tmp_path, monkeypatch):
+    from mcp_servers import study_server
+
+    monkeypatch.setattr(study_routes, "DATA_DIR", str(tmp_path))
+    root = study_routes._owner_root("alice")
+    modules = [
+        {"id": "law", "name": "Public Law"},
+        {"id": "history", "name": "History"},
+    ]
+    study_routes._write_json(root / "modules.json", modules)
+
+    def fake_search(root_arg, modules_arg, query, module_id=None, limit=8):
+        assert modules_arg == [modules[0]]
+        assert module_id == "law"
+        return [{"module": "Public Law", "source": "Lecture 1", "location": "p. 2", "snippet": "Judicial review"}]
+
+    monkeypatch.setattr(study_routes, "_semantic_search", fake_search)
+    result = asyncio.run(study_server.call_tool(
+        "study_search_material",
+        {"_odysseus_owner": "alice", "query": "judicial review", "module_id": "law"},
+    ))
+    payload = json.loads(result[0].text)
+    assert payload["count"] == 1
+    assert payload["results"][0]["module"] == "Public Law"
+
+
+def test_study_mcp_transcript_paginates_timestamped_segments(tmp_path, monkeypatch):
+    from mcp_servers import study_server
+
+    monkeypatch.setattr(study_routes, "DATA_DIR", str(tmp_path))
+    root = study_routes._owner_root("alice")
+    module_id = "law"
+    study_routes._write_json(root / "modules.json", [{"id": module_id, "name": "Public Law"}])
+    transcript_dir = root / "modules" / module_id / "transcripts"
+    transcript_dir.mkdir(parents=True)
+    study_routes._write_json(transcript_dir / "lecture-1.json", {
+        "id": "lecture-1", "title": "Lecture 1",
+        "segments": [
+            {"start": 0, "end": 4, "text": "First"},
+            {"start": 5, "end": 9, "text": "Second"},
+            {"start": 10, "end": 14, "text": "Third"},
+        ],
+    })
+
+    result = asyncio.run(study_server.call_tool("study_get_transcript", {
+        "_odysseus_owner": "alice", "module_id": module_id, "lecture_id": "lecture-1",
+        "segment_offset": 1, "segment_limit": 1,
+    }))
+    payload = json.loads(result[0].text)
+
+    assert payload["segments_total"] == 3
+    assert payload["segments"][0]["text"] == "Second"
+    assert payload["has_more_segments"] is True
+
+
+def test_study_mcp_transcript_rejects_invalid_pagination(tmp_path, monkeypatch):
+    from mcp_servers import study_server
+
+    monkeypatch.setattr(study_routes, "DATA_DIR", str(tmp_path))
+    root = study_routes._owner_root("alice")
+    study_routes._write_json(root / "modules.json", [{"id": "law", "name": "Public Law"}])
+    transcript_dir = root / "modules" / "law" / "transcripts"
+    transcript_dir.mkdir(parents=True)
+    study_routes._write_json(transcript_dir / "lecture-1.json", {"id": "lecture-1", "segments": []})
+
+    result = asyncio.run(study_server.call_tool("study_get_transcript", {
+        "_odysseus_owner": "alice", "module_id": "law", "lecture_id": "lecture-1",
+        "segment_offset": True,
+    }))
+
+    assert "segment_offset must be a non-negative integer" in result[0].text
+
+
+
+
+def test_study_mcp_saves_agent_authored_notes_as_local_pdf(tmp_path, monkeypatch):
+    from mcp_servers import study_server
+
+    monkeypatch.setattr(study_routes, "DATA_DIR", str(tmp_path))
+    root = study_routes._owner_root("alice")
+    study_routes._write_json(root / "modules.json", [{"id": "law", "name": "Public Law"}])
+
+    markdown = "# Judicial Review\n\nThese are notes composed by Odysseus.\n"
+    result = asyncio.run(study_server.call_tool("study_save_notes", {
+        "_odysseus_owner": "alice",
+        "module_id": "law",
+        "title": "Judicial Review",
+        "note_type": "seminar",
+        "markdown": markdown,
+    }))
+    payload = json.loads(result[0].text)
+
+    assert payload["saved"] is True
+    saved_path = Path(payload["path"])
+    assert saved_path.is_file()
+    assert saved_path.parent == root / "modules" / "law" / "Seminar Notes"
+    assert saved_path.name == "Judicial Review - notes.pdf"
+    assert saved_path.read_bytes().startswith(b"%PDF-")
+    assert payload["format"] == "pdf"
+
+
+def test_study_pdf_notes_do_not_overwrite_existing_files(tmp_path, monkeypatch):
+    monkeypatch.setattr(study_routes, "DATA_DIR", str(tmp_path))
+    root = study_routes._owner_root("alice")
+    study_routes._write_json(root / "modules.json", [{"id": "law", "name": "Public Law"}])
+
+    payload = {
+        "module_id": "law",
+        "title": "Lecture 1",
+        "note_type": "lecture",
+        "markdown": "# First version",
+    }
+    first = study_routes.save_notes_as_pdf(payload, "alice")
+    payload["markdown"] = "# Second version"
+    second = study_routes.save_notes_as_pdf(payload, "alice")
+
+    assert Path(first["path"]).read_bytes().startswith(b"%PDF-")
+    assert Path(second["path"]).read_bytes().startswith(b"%PDF-")
+    assert first["path"] != second["path"]
+    assert Path(first["path"]).parent == root / "modules" / "law" / "Lecture Notes"
+
+
+def test_study_mcp_errors_are_marked_as_tool_failures():
+    from mcp_servers import study_server
+
+    result = asyncio.run(study_server.call_tool("unknown_study_tool", {
+        "_odysseus_owner": "alice",
+    }))
+
+    assert result[0].text.startswith("Error: ")
+    assert "Unknown study tool" in result[0].text
+
+def test_study_pdf_preserves_unicode_and_supplementary_markers(tmp_path, monkeypatch):
+    from pypdf import PdfReader
+
+    monkeypatch.setattr(study_routes, "DATA_DIR", str(tmp_path))
+    root = study_routes._owner_root("alice")
+    study_routes._write_json(root / "modules.json", [{"id": "law", "name": "Public Law"}])
+    payload = {
+        "module_id": "law",
+        "title": "Lecture – Courts and Αθήνα",
+        "note_type": "lecture",
+        "markdown": (
+            "# Key concepts\n\n"
+            "The court considered the principle of proportionality.\n\n"
+            "<span class=\"supplementary\">Supplementary context: Αθήνα and external research.</span>\n"
+        ),
+    }
+
+    result = study_routes.save_notes_as_pdf(payload, "alice")
+    extracted = " ".join(
+        page.extract_text() or "" for page in PdfReader(result["path"]).pages
+    )
+
+    assert "Key concepts" in extracted
+    assert "proportionality" in extracted
+    assert "Supplementary context" in extracted
+    assert "Αθήνα" in extracted
+
+
+def test_study_mcp_large_pages_remain_valid_json_and_keep_pagination(tmp_path, monkeypatch):
+    from mcp_servers import study_server
+
+    monkeypatch.setattr(study_server, "MAX_RESULT_CHARS", 3000)
+    payload = {
+        "chunks_total": 30,
+        "chunk_offset": 5,
+        "chunks": [{"text": "x" * 500} for _ in range(20)],
+        "has_more_chunks": True,
+    }
+    result = study_server._text(payload)[0].text
+    parsed = json.loads(result)
+
+    assert parsed["truncated"] is True
+    assert parsed["has_more_chunks"] is True
+    assert parsed["chunk_offset"] + len(parsed["chunks"]) < parsed["chunks_total"]
+
+
+def test_study_mcp_lists_imported_sources_and_transcript_ids(tmp_path, monkeypatch):
+    from mcp_servers import study_server
+
+    monkeypatch.setattr(study_routes, "DATA_DIR", str(tmp_path))
+    root = study_routes._owner_root("alice")
+    study_routes._write_json(root / "modules.json", [{"id": "law", "name": "Public Law"}])
+    sources = root / "modules" / "law" / "sources"
+    sources.mkdir(parents=True)
+    study_routes._write_json(sources / "source-1.json", {
+        "id": "source-1", "title": "Week 1 captions", "material_type": "transcript",
+        "format": "vtt", "chunks": [{"text": "caption"}],
+    })
+    study_routes._write_json(sources / "source-2.json", {
+        "id": "source-2", "title": "Week 1 slides", "material_type": "slides",
+        "format": "pptx", "chunks": [{"text": "slide"}],
+    })
+
+    result = asyncio.run(study_server.call_tool("study_list_sources", {
+        "_odysseus_owner": "alice", "module_id": "law",
+        "source_offset": 0, "source_limit": 1,
+    }))
+    payload = json.loads(result[0].text)
+
+    assert payload["sources_total"] == 2
+    assert payload["source_offset"] == 0
+    assert payload["has_more_sources"] is True
+    assert len(payload["sources"]) == 1
+    assert payload["sources"][0]["id"] == "source-2"
+    assert payload["sources"][0]["material_type"] == "transcript"
+    assert "chunks" not in payload["sources"][0]

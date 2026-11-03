@@ -73,11 +73,11 @@ async def list_tools() -> list[Tool]:
                  "segment_limit":{"type":"integer","minimum":1,"maximum":500,"default":100}},
                  "required":["module_id","lecture_id"],"additionalProperties":False}),
         Tool(name="study_save_notes",
-             description="Save completed Markdown notes composed by Odysseus's current agent to the authenticated user's configured local Obsidian vault. This tool only writes the supplied content; it does not invoke a model or generate notes. Use after retrieving and synthesising the relevant course material. This is a write operation.",
+             description="Render completed Markdown notes composed by Odysseus's current agent as a PDF in the authenticated user's local Study library. Lecture notes are saved under the module's Lecture Notes folder; seminar preparation notes under Seminar Notes. The filename is '<title> - notes.pdf'. This tool only renders and saves supplied notes; it does not invoke a model or generate notes. Call automatically once a complete lecture or seminar note document is ready. This is a write operation.",
              inputSchema={"type":"object","properties":{
                  "module_id":{"type":"string"},
                  "title":{"type":"string","minLength":1,"maxLength":160},
-                 "note_type":{"type":"string","enum":["general","targeted"]},
+                 "note_type":{"type":"string","enum":["lecture","seminar"],"description":"lecture for general lecture notes; seminar for targeted seminar preparation notes."},
                  "markdown":{"type":"string","minLength":1,"maxLength":200000}},
                  "required":["module_id","title","note_type","markdown"],"additionalProperties":False})
     ]
@@ -165,7 +165,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 "note_type": args.get("note_type"),
                 "markdown": args.get("markdown"),
             }
-            result = await asyncio.to_thread(study.save_notes_to_vault, payload, owner)
+            result = await asyncio.to_thread(study.save_notes_as_pdf, payload, owner)
             return _text(result)
 
         return _text({"error":f"Unknown study tool: {name}"})

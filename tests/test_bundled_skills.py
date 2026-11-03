@@ -9,4 +9,4 @@ def test_bundled_law_study_skill_is_seeded_and_available_to_users(tmp_path):
     assert skill["source"] == "builtin"
     assert skill["status"] == "published"
     assert "England and Wales" in skill["body_extra"]
-    assert "Never answer the questions" in skill["body_extra"]
+    assert "Never answer the questions" in " ".join(skill["procedure"])

@@ -51,9 +51,12 @@ async function loadSources() {
   const data = await api(`/api/study/modules/${encodeURIComponent(activeModule)}/sources`);
   const list = $("study-source-list");
   if (!list) return;
-  list.innerHTML = data.sources.length ? data.sources.map(s =>
-    `<div class="study-lecture-row"><span>${esc(s.title)}</span><small>${esc(s.format.toUpperCase())} · ${s.pages} sections</small></div>`
-  ).join("") : '<div class="study-muted">No course materials added yet.</div>';
+  list.innerHTML = data.sources.length ? data.sources.map(s => {
+    const warning = (s.extraction_warnings || []).length
+      ? `<small class="study-warning">OCR incomplete: ${esc(s.extraction_warnings.join(" "))}</small>`
+      : "";
+    return `<div class="study-lecture-row"><span>${esc(s.title)}</span><small>${esc(s.format.toUpperCase())} · ${s.pages} sections</small>${warning}</div>`;
+  }).join("") : '<div class="study-muted">No course materials added yet.</div>';
 }
 async function importSource(file) {
   if (!file) return;
@@ -129,11 +132,19 @@ async function startCapture() {
       stopCaptureTracks();
       return toast("No system audio was shared. Select a screen and enable 'Share system audio', then try again.");
     }
-    mediaStream.getVideoTracks().forEach(t => { t.stop(); mediaStream.removeTrack(t); });
+    // Keep the display video track alive: stopping it can terminate the
+    // browser's entire display-capture session, including its system-audio track.
+    // Record from an audio-only stream so no screen pixels enter the recording.
+    mediaStream.getVideoTracks().forEach(t => {
+      t.enabled = false;
+      t.addEventListener("ended", () => {
+        if (recorder && recorder.state !== "inactive") stopCapture();
+      }, {once:true});
+    });
     const mime = ["audio/webm;codecs=opus", "audio/webm"].find(t => MediaRecorder.isTypeSupported(t));
     if (!mime) throw new Error("This browser cannot record WebM audio.");
     chunks = [];
-    recorder = new MediaRecorder(mediaStream, {mimeType: mime});
+    recorder = new MediaRecorder(new MediaStream(audioTracks), {mimeType: mime});
     recorder.ondataavailable = e => { if (e.data?.size) chunks.push(e.data); };
     recorder.onstop = async () => {
       stopCaptureTracks();
@@ -149,7 +160,6 @@ async function startCapture() {
     timer = setInterval(() => {
       $("study-recording-time").textContent = formatTime((Date.now() - recordingStarted) / 1000);
     }, 1000);
-    mediaStream.getVideoTracks().forEach(t => t.addEventListener("ended", () => stopCapture()));
     toast("Listening to shared system audio. Stop when the lecture finishes.");
   } catch (error) {
     stopCaptureTracks();

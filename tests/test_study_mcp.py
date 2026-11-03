@@ -53,3 +53,50 @@ def test_study_mcp_search_is_module_scoped(tmp_path, monkeypatch):
     payload = json.loads(result[0].text)
     assert payload["count"] == 1
     assert payload["results"][0]["module"] == "Public Law"
+
+
+def test_study_mcp_transcript_paginates_timestamped_segments(tmp_path, monkeypatch):
+    from mcp_servers import study_server
+
+    monkeypatch.setattr(study_routes, "DATA_DIR", str(tmp_path))
+    root = study_routes._owner_root("alice")
+    module_id = "law"
+    study_routes._write_json(root / "modules.json", [{"id": module_id, "name": "Public Law"}])
+    transcript_dir = root / "modules" / module_id / "transcripts"
+    transcript_dir.mkdir(parents=True)
+    study_routes._write_json(transcript_dir / "lecture-1.json", {
+        "id": "lecture-1", "title": "Lecture 1",
+        "segments": [
+            {"start": 0, "end": 4, "text": "First"},
+            {"start": 5, "end": 9, "text": "Second"},
+            {"start": 10, "end": 14, "text": "Third"},
+        ],
+    })
+
+    result = asyncio.run(study_server.call_tool("study_get_transcript", {
+        "_odysseus_owner": "alice", "module_id": module_id, "lecture_id": "lecture-1",
+        "segment_offset": 1, "segment_limit": 1,
+    }))
+    payload = json.loads(result[0].text)
+
+    assert payload["segments_total"] == 3
+    assert payload["segments"][0]["text"] == "Second"
+    assert payload["has_more_segments"] is True
+
+
+def test_study_mcp_transcript_rejects_invalid_pagination(tmp_path, monkeypatch):
+    from mcp_servers import study_server
+
+    monkeypatch.setattr(study_routes, "DATA_DIR", str(tmp_path))
+    root = study_routes._owner_root("alice")
+    study_routes._write_json(root / "modules.json", [{"id": "law", "name": "Public Law"}])
+    transcript_dir = root / "modules" / "law" / "transcripts"
+    transcript_dir.mkdir(parents=True)
+    study_routes._write_json(transcript_dir / "lecture-1.json", {"id": "lecture-1", "segments": []})
+
+    result = asyncio.run(study_server.call_tool("study_get_transcript", {
+        "_odysseus_owner": "alice", "module_id": "law", "lecture_id": "lecture-1",
+        "segment_offset": True,
+    }))
+
+    assert "segment_offset must be a non-negative integer" in result[0].text

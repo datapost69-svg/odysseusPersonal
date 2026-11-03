@@ -92,3 +92,5 @@
   color:var(--fg); font:11px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;
   white-space:pre-wrap; overflow-wrap:anywhere;
 }
+
+.study-warning { display: block; color: #b45309; white-space: normal; overflow-wrap: anywhere; margin-top: 4px; }

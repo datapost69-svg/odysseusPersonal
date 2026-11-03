@@ -41,7 +41,7 @@ def _text(value) -> list[TextContent]:
             if not isinstance(rows, list):
                 continue
             original_count = len(rows)
-            while rows and len(json.dumps(value, ensure_ascii=False, default=str)) > MAX_RESULT_CHARS:
+            while rows and len(json.dumps(value, ensure_ascii=False, indent=2, default=str)) > MAX_RESULT_CHARS:
                 rows.pop()
             if key in {"chunks", "segments"}:
                 flag = "has_more_chunks" if key == "chunks" else "has_more_segments"

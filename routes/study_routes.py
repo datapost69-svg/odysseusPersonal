@@ -226,29 +226,35 @@ def _extract_source(path: Path, suffix: str) -> list[dict]:
     if suffix == ".pdf":
         from pypdf import PdfReader
         reader = PdfReader(str(path))
+        pdfium_doc = None
         for number, page in enumerate(reader.pages, 1):
             text = (page.extract_text() or "").strip()
+            warnings = []
             # OCR pages that have no meaningful text layer (typical scanned PDFs).
             if len(text) < 80:
                 try:
-                    import pypdfium2 as pdfium
-                    pdf = pdfium.PdfDocument(str(path))
-                    bitmap = pdf[number - 1].render(scale=2.0)
+                    if pdfium_doc is None:
+                        import pypdfium2 as pdfium
+                        pdfium_doc = pdfium.PdfDocument(str(path))
+                    bitmap = pdfium_doc[number - 1].render(scale=2.0)
                     image = bitmap.to_pil()
                     ocr_text = _ocr_image(image)
                     if ocr_text:
                         text = (text + "\\n" + ocr_text).strip()
-                except RuntimeError:
-                    # Keep any embedded text and report the OCR requirement only
-                    # when the document has no usable text at all.
+                except RuntimeError as exc:
                     if not text:
                         raise
+                    warnings.append(str(exc))
             if text:
-                pages.append({"location": f"p. {number}", "text": text})
+                row = {"location": f"p. {number}", "text": text}
+                if warnings:
+                    row["warnings"] = warnings
+                pages.append(row)
     elif suffix == ".pptx":
         from pptx import Presentation
         for number, slide in enumerate(Presentation(str(path)).slides, 1):
             bits = []
+            warnings = []
             for shape in slide.shapes:
                 if getattr(shape, "has_text_frame", False):
                     bits.append(shape.text)
@@ -262,9 +268,10 @@ def _extract_source(path: Path, suffix: str) -> list[dict]:
                         image_text = _ocr_image(image)
                         if image_text:
                             bits.append(image_text)
-                    except RuntimeError:
-                        # Image OCR is optional for text-native presentations.
-                        logger.info("Skipping slide-image OCR because local Tesseract is unavailable")
+                    except RuntimeError as exc:
+                        # Keep the native slide text, but expose that image text
+                        # was skipped so the user knows the extraction is partial.
+                        warnings.append(str(exc))
             # Include speaker notes where PowerPoint provides them.
             try:
                 notes = slide.notes_slide.notes_text_frame.text
@@ -274,7 +281,10 @@ def _extract_source(path: Path, suffix: str) -> list[dict]:
                 pass
             text = "\\n".join(x.strip() for x in bits if x and x.strip())
             if text:
-                pages.append({"location": f"slide {number}", "text": text})
+                row = {"location": f"slide {number}", "text": text}
+                if warnings:
+                    row["warnings"] = warnings
+                pages.append(row)
     elif suffix == ".docx":
         from docx import Document as WordDocument
         doc = WordDocument(str(path))
@@ -511,6 +521,7 @@ async def import_source(
         "file": original.relative_to(root).as_posix(),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "pages": len(pages),
+        "extraction_warnings": sorted({warning for page in pages for warning in page.get("warnings", [])}),
         "chunks": chunks,
     }
     _write_json(folder / f"{source_id}.json", record)

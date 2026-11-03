@@ -11,7 +11,7 @@ import re
 import tempfile
 import uuid
 from datetime import datetime, timezone
-from html import escape
+from html import escape, unescape
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -240,7 +240,7 @@ def _parse_subtitle_transcript(text: str) -> list[dict]:
         caption_lines = lines[match_index + 1:]
         # Strip common WebVTT markup while preserving the words.
         caption = re.sub(r"<[^>]+>", "", " ".join(caption_lines))
-        caption = re.sub(r"&(?:amp|lt|gt|nbsp);", " ", caption)
+        caption = unescape(caption)
         caption = re.sub(r"\\s+", " ", caption).strip()
         if caption and end >= start:
             rows.append({"start": round(start, 3), "end": round(end, 3), "text": caption})

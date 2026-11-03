@@ -1020,6 +1020,10 @@
         </svg>
         <span class="incognito-label">Nobody</span>
       </button>
+      <label for="isolated-memory-toggle" style="display:flex;align-items:center;gap:9px;margin:14px auto 0;max-width:300px;text-align:left;font-size:13px;color:var(--text-secondary);cursor:pointer;">
+        <input type="checkbox" id="isolated-memory-toggle" style="accent-color:var(--accent);width:15px;height:15px;flex:0 0 auto;">
+        <span><strong style="display:block;color:var(--text-primary);font-weight:600;">Isolated memory</strong><span style="font-size:11px;opacity:.8;">Starts fresh, without memories from other chats. Forks copy this chat's memory.</span></span>
+      </label>
       <div id="welcome-setup" style="display:none"></div>
     </div>
     <script nonce="{{CSP_NONCE}}">

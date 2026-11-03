@@ -271,7 +271,7 @@
        PRECACHE list in sw.js. None of them is lazy-loaded. -->
   <link rel="stylesheet" href="/static/css/documents-gallery-editor.css?v=20261021confirmalign1">
   <link rel="stylesheet" href="/static/css/email-calendar-notes-tasks.css?v=20261021confirmalign1">
-  <link rel="stylesheet" href="/static/css/study.css?v=20261103jurisdiction1">
+  <link rel="stylesheet" href="/static/css/study.css?v=20261103studyocr1">
   <link rel="stylesheet" href="/static/css/cookbook-research-memory-settings.css?v=20261021confirmalign1">
   <link rel="modulepreload" href="/static/app.js?v=20261021confirmalign1">
 <link rel="modulepreload" href="/static/js/chat.js?v=20260917toolttft1">
@@ -2716,7 +2716,7 @@
             <input id="study-source-import" type="file" accept=".pdf,.pptx,.docx,.txt,.md" hidden>
           </div>
           <div id="study-source-list" class="study-lecture-list" style="margin-top:8px"><div class="study-muted">No course materials added yet.</div></div>
-          <p class="study-muted">Files are extracted and indexed locally. Scanned PDFs will need OCR support in a later stage.</p>
+          <p class="study-muted">Files are extracted and indexed locally. Scanned PDFs and text embedded in slide images are read with local Tesseract OCR. PowerPoint speaker notes are included. Install Tesseract on this device; see docs/local-study-setup.md.</p>
         </section>
         <section class="study-card">
           <div class="study-label">Search your study library</div>
@@ -2787,7 +2787,7 @@
 <script type="module" src="/static/js/censor.js"></script>
 <script type="module" src="/static/js/settings.js?v=20260912writingstyle3"></script>
 <script type="module" src="/static/js/assistant.js?v=20260912firefoxjscleanup1"></script>
-<script type="module" src="/static/js/study.js?v=20261103jurisdiction1"></script>
+<script type="module" src="/static/js/study.js?v=20261103studyocr1"></script>
 <script type="module" src="/static/app.js?v=20261021confirmalign1"></script>  <!-- app.js must be LAST -->
   <script type="module" src="/static/js/init.js?v=20260829chatstyle12"></script>
 <script type="module" src="/static/js/a11y.js"></script>

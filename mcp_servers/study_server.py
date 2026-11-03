@@ -64,7 +64,9 @@ async def list_tools() -> list[Tool]:
              inputSchema={"type":"object","properties":{
                  "module_id":{"type":"string"},"lecture_id":{"type":"string"},
                  "start_seconds":{"type":"number","minimum":0},
-                 "end_seconds":{"type":"number","minimum":0}},
+                 "end_seconds":{"type":"number","minimum":0},
+                 "segment_offset":{"type":"integer","minimum":0,"default":0},
+                 "segment_limit":{"type":"integer","minimum":1,"maximum":500,"default":100}},
                  "required":["module_id","lecture_id"],"additionalProperties":False}),
         Tool(name="study_generate_notes",
              description="Generate either general lecture notes or targeted seminar preparation notes from the authenticated user's local module materials and save them to the configured local Obsidian vault. This writes a new Markdown file. Targeted notes must prepare understanding but must never answer seminar questions or draft model answers. Requires an installed local Ollama model.",
@@ -132,13 +134,24 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             row = json.loads(path.read_text(encoding="utf-8"))
             start = args.get("start_seconds")
             end = args.get("end_seconds")
+            segments = row.get("segments", [])
             if start is not None or end is not None:
                 lo = float(start or 0)
                 hi = float(end) if end is not None else float("inf")
                 if hi < lo:
                     raise ValueError("end_seconds must be greater than or equal to start_seconds.")
-                row["segments"] = [s for s in row.get("segments", [])
-                                   if float(s.get("end", 0)) >= lo and float(s.get("start", 0)) <= hi]
+                segments = [s for s in segments
+                            if float(s.get("end", 0)) >= lo and float(s.get("start", 0)) <= hi]
+            offset = args.get("segment_offset", 0)
+            limit = args.get("segment_limit", 100)
+            if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
+                raise ValueError("segment_offset must be a non-negative integer.")
+            if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 500:
+                raise ValueError("segment_limit must be between 1 and 500.")
+            row["segments_total"] = len(segments)
+            row["segment_offset"] = offset
+            row["segments"] = segments[offset:offset + limit]
+            row["has_more_segments"] = offset + limit < len(segments)
             return _text(row)
 
         if name == "study_generate_notes":

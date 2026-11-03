@@ -27,7 +27,7 @@ Faster-Whisper and FastEmbed may download their model files the first time they 
 
 ## Notes PDF formatting
 
-The PDF renderer recognises the semantic HTML marker `<span class="supplementary">…</span>` and renders that passage in red. Use it for clearly labelled external research or model-supplied context, with a real source hyperlink/citation in the same passage. Ordinary course-source notes remain in the normal text colour.
+The PDF renderer selects Arial on Windows or DejaVu Sans on Linux when available, and recognises the semantic HTML marker `<span class="supplementary">…</span>` and renders that passage in red. Use it for clearly labelled external research or model-supplied context, with a real source hyperlink/citation in the same passage. Ordinary course-source notes remain in the normal text colour.
 
 ## Current scope
 

@@ -46,3 +46,9 @@
 }
 .study-import-label:hover { border-color:var(--accent,var(--red)); }
 .study-panel .study-muted a { color:var(--accent,var(--red)); }
+
+.study-search-result { padding:9px 10px; border:1px solid var(--border); border-radius:6px; }
+.study-search-result > div { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.study-search-result strong { font-size:11px; font-weight:650; }
+.study-search-result small { font-size:10px; opacity:.58; }
+.study-search-result p { margin:6px 0 0; font-size:11px; line-height:1.55; opacity:.82; white-space:pre-wrap; }

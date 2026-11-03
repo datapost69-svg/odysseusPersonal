@@ -727,6 +727,66 @@ def _safe_note_filename(value: str) -> str:
     stem = re.sub(r"[^A-Za-z0-9._ -]+", "", value).strip(" .-_")
     return (stem or "Study notes")[:100]
 
+def save_notes_to_vault(payload: dict, owner: str) -> dict:
+    """Save Markdown composed by Odysseus into the owner's configured local vault.
+
+    This deliberately does not call an LLM: note composition belongs to
+    Odysseus's existing agent and user-managed Skills.
+    """
+    module_id = str(payload.get("module_id") or "").strip()
+    title = str(payload.get("title") or "").strip()
+    note_type = str(payload.get("note_type") or "").strip()
+    markdown = payload.get("markdown")
+    if not module_id:
+        raise ValueError("module_id is required.")
+    if not title or len(title) > 160:
+        raise ValueError("title must contain 1–160 characters.")
+    if note_type not in {"general", "targeted"}:
+        raise ValueError("note_type must be 'general' or 'targeted'.")
+    if not isinstance(markdown, str) or not markdown.strip():
+        raise ValueError("markdown must contain the completed study notes.")
+    if len(markdown) > 200000:
+        raise ValueError("markdown exceeds the 200,000-character limit.")
+
+    root = _owner_root(owner)
+    module = _module(root, module_id)
+    config_path = root / "obsidian.json"
+    if not config_path.is_file():
+        raise ValueError("Configure your local Obsidian vault first.")
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    try:
+        vault = Path(config.get("vault_path", "")).expanduser().resolve(strict=True)
+    except (OSError, RuntimeError):
+        raise ValueError("The configured Obsidian vault is no longer available.")
+    if not vault.is_dir() or not (vault / ".obsidian").is_dir():
+        raise ValueError("The configured Obsidian vault is no longer available.")
+
+    module_folder = _safe_note_filename(module.get("name", "Module"))
+    note_folder = vault / module_folder
+    note_folder.mkdir(parents=True, exist_ok=True)
+    note_folder = note_folder.resolve(strict=True)
+    if not note_folder.is_relative_to(vault):
+        raise ValueError("The module note folder resolves outside the configured vault.")
+
+    filename = _safe_note_filename(title) + ".md"
+    destination = note_folder / filename
+    if destination.exists():
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        unique = uuid.uuid4().hex[:8]
+        destination = note_folder / f"{_safe_note_filename(title)}-{stamp}-{unique}.md"
+    with destination.open("x", encoding="utf-8", newline="\n") as handle:
+        handle.write(markdown.strip() + "\n")
+
+    return {
+        "saved": True,
+        "path": str(destination),
+        "module": module.get("name"),
+        "title": title,
+        "note_type": note_type,
+        "characters": len(markdown),
+    }
+
+
 
 @router.get("/vault")
 async def get_obsidian_vault(owner: str = Depends(require_user)):

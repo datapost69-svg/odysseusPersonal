@@ -11,6 +11,7 @@ import re
 import tempfile
 import uuid
 from datetime import datetime, timezone
+from html import escape
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -687,10 +688,19 @@ def save_notes_as_pdf(payload: dict, owner: str) -> dict:
         leading=14, spaceAfter=2.5 * mm,
     ))
     styles.add(ParagraphStyle(
+        name="StudyCode", parent=styles["Code"], fontName="Courier", fontSize=8,
+        leading=10, leftIndent=5 * mm, rightIndent=5 * mm, spaceAfter=3 * mm,
+    ))
+    styles.add(ParagraphStyle(
+        name="StudyQuote", parent=styles["BodyText"], fontName="Helvetica-Oblique",
+        leftIndent=8 * mm, rightIndent=5 * mm, textColor=colors.HexColor("#444444"),
+        spaceAfter=3 * mm,
+    ))
+    styles.add(ParagraphStyle(
         name="StudySmall", parent=styles["BodyText"], fontSize=8,
         leading=10,
     ))
-    story = [Paragraph(title, styles["StudyTitle"])]
+    story = [Paragraph(escape(title), styles["StudyTitle"])]
     for element in soup.contents:
         if not getattr(element, "name", None):
             continue
@@ -705,13 +715,13 @@ def save_notes_as_pdf(payload: dict, owner: str) -> dict:
             for index, item in enumerate(element.find_all("li", recursive=False), 1):
                 bullet = "•" if tag == "ul" else f"{index}."
                 story.append(Paragraph(
-                    item.decode_contents(), styles["StudyBody"], bulletText=bullet
+                    item.decode_contents().replace("<p>", "").replace("</p>", ""), styles["StudyBody"], bulletText=bullet
                 ))
         elif tag == "pre":
-            story.append(Preformatted(element.get_text(), styles["Code"]))
+            story.append(Preformatted(element.get_text(), styles["StudyCode"]))
         elif tag == "blockquote":
             story.append(Paragraph(
-                element.get_text(" ", strip=True), styles["Quote"]
+                element.get_text(" ", strip=True), styles["StudyQuote"]
             ))
         elif tag == "table":
             rows = []

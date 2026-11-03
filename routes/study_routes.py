@@ -236,7 +236,8 @@ def _extract_source(path: Path, suffix: str) -> list[dict]:
                     if pdfium_doc is None:
                         import pypdfium2 as pdfium
                         pdfium_doc = pdfium.PdfDocument(str(path))
-                    bitmap = pdfium_doc[number - 1].render(scale=2.0)
+                    ocr_dpi = max(150, min(float(os.getenv("ODYSSEUS_STUDY_OCR_DPI", "220")), 400))
+                    bitmap = pdfium_doc[number - 1].render(scale=ocr_dpi / 72.0)
                     image = bitmap.to_pil()
                     ocr_text = _ocr_image(image)
                     if ocr_text:

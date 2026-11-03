@@ -2713,12 +2713,26 @@
           <p class="study-muted">Files are extracted and indexed locally. Scanned PDFs will need OCR support in a later stage.</p>
         </section>
         <section class="study-card">
-          <div class="study-label">Search across your modules</div>
+          <div class="study-label">Search your study library</div>
           <div class="study-row">
-            <input id="study-search-query" type="search" placeholder="Search concepts, arguments or keywords">
-            <button id="study-search-button" type="button">Search library</button>
+            <input id="study-search-query" type="search" placeholder="Describe a concept or topic to find related passages">
+            <button id="study-search-button" type="button">Find passages</button>
           </div>
+          <p class="study-muted">Meaning-based search across every module. Results retain page, slide or lecture timestamp references.</p>
           <div id="study-search-results" class="study-lecture-list" style="margin-top:8px"></div>
+        </section>
+        <section class="study-card">
+          <div class="study-label">Ask your study library</div>
+          <div class="study-row">
+            <select id="study-model-select" aria-label="Local Ollama model"><option value="">Checking local models…</option></select>
+          </div>
+          <textarea id="study-question" rows="3" placeholder="Ask a question about your lectures and course materials. Answers are grounded in retrieved passages."></textarea>
+          <div class="study-row" style="justify-content:flex-end">
+            <button id="study-ask-button" type="button">Ask library</button>
+          </div>
+          <div id="study-answer" class="study-answer hidden" aria-live="polite"></div>
+          <div id="study-answer-sources" class="study-answer-sources"></div>
+          <p class="study-muted">Uses only your local library and a model running in Ollama on this device. If the sources do not support an answer, it should say so.</p>
         </section>
         <section class="study-card">
           <div class="study-label">Lecture recordings</div>

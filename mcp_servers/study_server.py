@@ -40,12 +40,13 @@ def _text(value) -> list[TextContent]:
             rows = value.get(key)
             if not isinstance(rows, list):
                 continue
+            original_count = len(rows)
             while rows and len(json.dumps(value, ensure_ascii=False, default=str)) > MAX_RESULT_CHARS:
                 rows.pop()
             if key in {"chunks", "segments"}:
                 flag = "has_more_chunks" if key == "chunks" else "has_more_segments"
                 value[flag] = bool(value.get(flag) or len(rows) < value.get("chunks_total" if key == "chunks" else "segments_total", len(rows)))
-            if len(rows) < len(value.get(key, [])):
+            if len(rows) < original_count:
                 value["truncated"] = True
             # Search results do not have offset pagination; callers can narrow
             # the query when a response has been shortened to fit the MCP limit.

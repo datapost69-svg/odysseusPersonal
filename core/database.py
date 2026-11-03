@@ -1040,6 +1040,7 @@ def _migrate_add_memory_injection_enabled_column():
 
 def _migrate_add_isolated_memory_column():
     """Add per-session isolated memory scope (off for existing sessions)."""
+    import sqlite3
     db_path = DATABASE_URL.replace("sqlite:///", "")
     if not os.path.exists(db_path):
         return

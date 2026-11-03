@@ -742,7 +742,6 @@ def save_notes_as_pdf(payload: dict, owner: str) -> dict:
     pdfmetrics.registerFont(TTFont("StudySans-Bold", str(font_dir / "VeraBd.ttf")))
     pdfmetrics.registerFont(TTFont("StudySans-Italic", str(font_dir / "VeraIt.ttf")))
     pdfmetrics.registerFont(TTFont("StudySans-BoldItalic", str(font_dir / "VeraBI.ttf")))
-    pdfmetrics.registerFont(TTFont("StudyMono", str(font_dir / "VeraMono.ttf")))
     registerFontFamily(
         "StudySans", normal="StudySans", bold="StudySans-Bold",
         italic="StudySans-Italic", boldItalic="StudySans-BoldItalic",
@@ -811,7 +810,7 @@ def save_notes_as_pdf(payload: dict, owner: str) -> dict:
         leading=14, spaceAfter=2.5 * mm,
     ))
     styles.add(ParagraphStyle(
-        name="StudyCode", parent=styles["Code"], fontName="StudyMono", fontSize=8,
+        name="StudyCode", parent=styles["Code"], fontName="StudySans", fontSize=8,
         leading=10, leftIndent=5 * mm, rightIndent=5 * mm, spaceAfter=3 * mm,
     ))
     styles.add(ParagraphStyle(

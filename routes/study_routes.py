@@ -122,7 +122,7 @@ async def import_audio(
     if len(audio) > MAX_AUDIO_BYTES:
         raise HTTPException(413, "Audio file exceeds the 512 MB limit")
     item_id = uuid.uuid4().hex
-    safe_name = re.sub(r"[^A-Za-z0-9._-]+", "-", Path(file.filename or "lecture").stem).strip(".-_")[:80] or "lecture"
+    safe_name = re.sub(r"[^\\w.-]+", "-", Path(file.filename or "lecture").stem, flags=re.UNICODE).strip(".-_")[:80] or "lecture"
     module_dir = root / "modules" / module_id
     audio_dir = module_dir / "audio"
     transcript_dir = module_dir / "transcripts"
@@ -519,7 +519,7 @@ async def import_source(
     if len(raw) > 100 * 1024 * 1024:
         raise HTTPException(413, "Document exceeds the 100 MB limit")
     source_id = uuid.uuid4().hex
-    safe_name = re.sub(r"[^A-Za-z0-9._-]+", "-", Path(file.filename or "source").name).strip(".-_")[:100] or "source"
+    safe_name = re.sub(r"[^\\w.-]+", "-", Path(file.filename or "source").name, flags=re.UNICODE).strip(".-_")[:100] or "source"
     folder = root / "modules" / module_id / "sources"
     folder.mkdir(parents=True, exist_ok=True)
     original = folder / f"{source_id}-{safe_name}"

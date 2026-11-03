@@ -219,6 +219,7 @@ class SessionManager:
             is_important=getattr(db_session, 'is_important', False) or False,
             memory_extraction_enabled=getattr(db_session, 'memory_extraction_enabled', True) is not False,
             memory_injection_enabled=getattr(db_session, 'memory_injection_enabled', True) is not False,
+            isolated_memory=getattr(db_session, 'isolated_memory', False) is True,
             skill_injection_enabled=getattr(db_session, 'skill_injection_enabled', True) is not False,
             thinking_mode=getattr(db_session, "thinking_mode", "") or "off",
             temperature_override=getattr(db_session, "temperature_override", None),

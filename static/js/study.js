@@ -119,7 +119,7 @@ async function askLibrary() {
     const data = await api("/api/study/ask", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({question, module_id: activeModule || null, model})
+      body: JSON.stringify({question, module_id: $("study-ask-all-modules").checked ? null : (activeModule || null), model})
     });
     answer.textContent = data.answer;
     answer.classList.toggle("study-answer-ungrounded", !data.grounded);

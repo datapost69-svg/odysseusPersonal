@@ -155,7 +155,7 @@ async def import_audio(
         start = max(0, int(float(group[0]["start"])))
         end = max(start, int(float(group[-1]["end"])))
         transcript_chunks.append({
-            "source_id": item_id, "source_type": "lecture",
+            "source_id": item_id, "source_type": "lecture", "jurisdiction": "england_wales",
             "title": record["title"],
             "location": f"lecture {start // 60:02d}:{start % 60:02d}–{end // 60:02d}:{end % 60:02d}",
             "text": " ".join(segment["text"] for segment in group),

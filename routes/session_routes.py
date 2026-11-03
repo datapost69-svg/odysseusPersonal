@@ -497,6 +497,7 @@ def setup_session_routes(
                     "endpoint_id": bound_id or (selected_endpoint.id if selected_endpoint else None),
                     "endpoint_name": selected_endpoint.name if selected_endpoint else None,
                     "rag": s.rag,
+                    "isolated_memory": getattr(s, "isolated_memory", False) is True,
                     "archived": s.archived,
                     "folder": s.folder,
                     "cwd": s.cwd,

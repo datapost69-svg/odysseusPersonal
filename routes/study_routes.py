@@ -778,6 +778,14 @@ async def generate_study_notes(payload: dict, owner: str = Depends(require_user)
         raise HTTPException(503, "Local study retrieval is unavailable.") from exc
     if not hits:
         raise HTTPException(400, "No relevant material was found in this module. Add lecture recordings and course documents first.")
+    primary_hits = [
+        hit for hit in hits
+        if (note_type == "general" and (hit.get("source_type") == "lecture" or hit.get("material_type") == "slides"))
+        or (note_type == "targeted" and hit.get("material_type") == "reading")
+    ]
+    if not primary_hits:
+        required = "lecture recordings or slide decks" if note_type == "general" else "reading materials"
+        raise HTTPException(400, f"These notes need primary sources first. Add relevant {required} to this module.")
     def priority(hit):
         if note_type == "general":
             return 0 if hit.get("source_type") == "lecture" or hit.get("material_type") == "slides" else 1

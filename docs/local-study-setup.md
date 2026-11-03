@@ -31,4 +31,4 @@ Supported audio formats: WAV, MP3, M4A, MP4, WebM, OGG, FLAC and AAC.
 
 Supported course documents: PDF, PPTX, DOCX, TXT and Markdown.
 
-Legacy binary PowerPoint/Word formats (`.ppt`, `.doc`), standalone image uploads, and automatic live microphone/system-audio recording are not part of the reliable file-import workflow yet.
+Legacy binary PowerPoint/Word formats (`.ppt`, `.doc`) and standalone image uploads are not supported. Browser-based live system-audio capture is available through the screen-sharing picker, but it is browser-dependent and should be treated as experimental; importing a saved lecture recording is the reliable path.

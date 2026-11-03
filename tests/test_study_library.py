@@ -385,3 +385,13 @@ def test_import_subtitle_transcript_saves_timestamped_segments(tmp_path, monkeyp
     transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
     assert transcript["segments"][0]["start"] == 10.0
     assert "rule of law" in transcript["segments"][0]["text"]
+
+    from mcp_servers import study_server
+    retrieved = asyncio.run(study_server.call_tool("study_get_transcript", {
+        "_odysseus_owner": "student",
+        "module_id": "law",
+        "lecture_id": result["source"]["id"],
+    }))
+    retrieved_payload = json.loads(retrieved[0].text)
+    assert retrieved_payload["segments"][0]["start"] == 10.0
+    assert "rule of law" in retrieved_payload["segments"][0]["text"]

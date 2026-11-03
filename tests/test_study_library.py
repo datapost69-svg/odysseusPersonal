@@ -117,3 +117,26 @@ def test_semantic_search_can_be_limited_to_one_module(tmp_path, monkeypatch):
     hits = study._semantic_search(root, modules, "concept", module_id="b")
     assert len(hits) == 1
     assert hits[0]["module_id"] == "b"
+
+
+def test_semantic_search_backfills_preexisting_source_chunks(tmp_path, monkeypatch):
+    import numpy as np
+    import routes.study_routes as study
+
+    class FakeEmbedder:
+        def encode(self, texts, normalize_embeddings=True):
+            return np.asarray([[1.0, 0.0] for _ in texts], dtype="float32")
+
+    monkeypatch.setattr(study, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(study, "_study_embedder", FakeEmbedder())
+    root = study._owner_root("student")
+    module_id = "old-module"
+    source_dir = root / "modules" / module_id / "sources"
+    study._write_json(source_dir / "old-source.json", {
+        "id": "old-source", "title": "Previously imported reading",
+        "chunks": [{"location": "p. 9", "text": "The social contract legitimises political authority."}],
+    })
+    hits = study._semantic_search(root, [{"id": module_id, "name": "Political Theory"}], "political authority")
+    assert hits[0]["source"] == "Previously imported reading"
+    assert hits[0]["location"] == "p. 9"
+    assert (root / "modules" / module_id / "semantic_index.json").is_file()

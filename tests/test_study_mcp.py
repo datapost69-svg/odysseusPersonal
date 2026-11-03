@@ -188,3 +188,21 @@ def test_study_pdf_preserves_unicode_and_supplementary_markers(tmp_path, monkeyp
     assert "proportionality" in extracted
     assert "Supplementary context" in extracted
     assert "Αθήνα" in extracted
+
+
+def test_study_mcp_large_pages_remain_valid_json_and_keep_pagination(tmp_path, monkeypatch):
+    from mcp_servers import study_server
+
+    monkeypatch.setattr(study_server, "MAX_RESULT_CHARS", 3000)
+    payload = {
+        "chunks_total": 30,
+        "chunk_offset": 5,
+        "chunks": [{"text": "x" * 500} for _ in range(20)],
+        "has_more_chunks": True,
+    }
+    result = study_server._text(payload)[0].text
+    parsed = json.loads(result)
+
+    assert parsed["truncated"] is True
+    assert parsed["has_more_chunks"] is True
+    assert parsed["chunk_offset"] + len(parsed["chunks"]) < parsed["chunks_total"]

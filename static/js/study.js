@@ -83,31 +83,6 @@ async function searchLibrary() {
   } catch (error) { list.innerHTML = `<div class="study-muted">${esc(error.message)}</div>`; }
 }
 
-async function loadObsidianVault() {
-  try {
-    const data = await api("/api/study/vault");
-    $("study-vault-path").value = data.vault_path || "";
-    $("study-vault-status").textContent = data.configured
-      ? "Obsidian vault connected on this device."
-      : "Choose the folder of your existing Obsidian vault.";
-  } catch (error) { $("study-vault-status").textContent = error.message; }
-}
-async function saveObsidianVault() {
-  const vault_path = $("study-vault-path").value.trim();
-  if (!vault_path) return toast("Enter your Obsidian vault folder path.");
-  const button = $("study-vault-save");
-  button.disabled = true;
-  try {
-    const data = await api("/api/study/vault", {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({vault_path})
-    });
-    $("study-vault-path").value = data.vault_path;
-    $("study-vault-status").textContent = "Obsidian vault connected on this device.";
-    toast("Obsidian vault location saved locally.");
-  } catch (error) { toast(error.message); }
-  finally { button.disabled = false; }
-}
 async function openLecture(id) {
   const data = await api(`/api/study/modules/${encodeURIComponent(activeModule)}/lectures/${encodeURIComponent(id)}`);
   $("study-transcript-title").textContent = data.title;
@@ -218,7 +193,6 @@ function openPanel() {
   panel?.classList.remove("hidden");
   panel?.setAttribute("aria-hidden", "false");
   loadModules().catch(e => toast(e.message));
-  loadObsidianVault();
 }
 function closePanel() {
   stopCapture();
@@ -237,7 +211,6 @@ function init() {
   $("study-refresh")?.addEventListener("click", () => Promise.all([loadLectures(), loadSources()]).catch(e => toast(e.message)));
   $("study-source-import")?.addEventListener("change", e => { importSource(e.target.files?.[0]); e.target.value = ""; });
   $("study-search-button")?.addEventListener("click", () => searchLibrary());
-  $("study-vault-save")?.addEventListener("click", saveObsidianVault);
   $("study-search-query")?.addEventListener("keydown", e => { if (e.key === "Enter") searchLibrary(); });
 }
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, {once:true});

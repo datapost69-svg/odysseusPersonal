@@ -532,7 +532,10 @@ async def import_source(
         logger.exception("Study document extraction failed")
         raise HTTPException(422, f"Could not extract text from this document: {exc}")
     if not pages:
-        raise HTTPException(422, "No extractable text was found. Scanned PDFs need OCR, which is not included yet.")
+        raise HTTPException(
+            422,
+            "No extractable text was found. If this is a scanned PDF or image-only PowerPoint, install local Tesseract OCR and try again.",
+        )
     chunks = _source_chunks(pages)
     record = {
         "id": source_id,

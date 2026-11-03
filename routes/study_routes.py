@@ -278,7 +278,11 @@ def _index_records(root: Path, module_id: str, records: list[dict]) -> int:
                 existing = []
         except (OSError, json.JSONDecodeError):
             logger.warning("Rebuilding unreadable study semantic index for module %s", module_id)
-    by_id = {row.get("id"): row for row in existing if isinstance(row, dict) and row.get("id")}
+    model_name = getattr(embedder, "model", "local-fastembed")
+    by_id = {
+        row.get("id"): row for row in existing
+        if isinstance(row, dict) and row.get("id") and row.get("embedding_model") == model_name
+    }
     for record, vector in zip(records, vectors):
         identity = hashlib.sha256(
             (str(record.get("source_id")) + "|" + str(record.get("location")) + "|" + str(record.get("text"))).encode("utf-8")
@@ -353,13 +357,14 @@ def _ensure_module_semantic_index(root: Path, module: dict) -> None:
 
 
 def _semantic_search(root: Path, modules: list[dict], query: str, module_id: str | None = None, limit: int = 8) -> list[dict]:
+    eligible_modules = [module for module in modules if not module_id or module.get("id") == module_id]
+    if not eligible_modules:
+        return []
     embedder = _get_study_embedder()
     query_vector = embedder.encode([query], normalize_embeddings=True)[0]
     hits = []
-    for module in modules:
+    for module in eligible_modules:
         _ensure_module_semantic_index(root, module)
-        if module_id and module.get("id") != module_id:
-            continue
         path = _semantic_index_path(root, module["id"])
         if not path.exists():
             continue

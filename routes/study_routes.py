@@ -692,8 +692,25 @@ def save_notes_as_pdf(payload: dict, owner: str) -> dict:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import mm
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfbase.pdfmetrics import registerFontFamily
+    import reportlab
     from reportlab.platypus import (
         SimpleDocTemplate, Paragraph, Spacer, Preformatted, Table, TableStyle,
+    )
+
+    # ReportLab's bundled Vera fonts cover Latin, Greek and Cyrillic text,
+    # unlike the built-in Helvetica fonts which silently lose many characters.
+    font_dir = Path(reportlab.__file__).parent / "fonts"
+    pdfmetrics.registerFont(TTFont("StudySans", str(font_dir / "Vera.ttf")))
+    pdfmetrics.registerFont(TTFont("StudySans-Bold", str(font_dir / "VeraBd.ttf")))
+    pdfmetrics.registerFont(TTFont("StudySans-Italic", str(font_dir / "VeraIt.ttf")))
+    pdfmetrics.registerFont(TTFont("StudySans-BoldItalic", str(font_dir / "VeraBI.ttf")))
+    pdfmetrics.registerFont(TTFont("StudyMono", str(font_dir / "VeraMono.ttf")))
+    registerFontFamily(
+        "StudySans", normal="StudySans", bold="StudySans-Bold",
+        italic="StudySans-Italic", boldItalic="StudySans-BoldItalic",
     )
 
     root = _owner_root(owner)
@@ -718,45 +735,53 @@ def save_notes_as_pdf(payload: dict, owner: str) -> dict:
     # Only a small, safe subset of inline HTML is retained for ReportLab.
     html = nh3.clean(
         html,
-        tags={"p", "strong", "b", "em", "i", "u", "a", "code", "br",
+        tags={"p", "strong", "b", "em", "i", "u", "a", "code", "br", "span",
               "h1", "h2", "h3", "h4", "ul", "ol", "li", "pre",
               "blockquote", "table", "thead", "tbody", "tr", "th", "td"},
-        attributes={"a": {"href"}},
+        attributes={"a": {"href"}, "span": {"class"}},
         url_schemes={"http", "https", "mailto"},
     )
     soup = BeautifulSoup(html, "html.parser")
+    # A semantic marker lets the agent distinguish external/model additions
+    # from course-source notes. It is not arbitrary user-controlled styling.
+    for span in soup.find_all("span"):
+        if "supplementary" in span.get("class", []):
+            span.name = "font"
+            span.attrs = {"color": "#B3261E"}
+        else:
+            span.unwrap()
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle(
-        name="StudyTitle", parent=styles["Title"], fontName="Helvetica-Bold",
+        name="StudyTitle", parent=styles["Title"], fontName="StudySans-Bold",
         fontSize=20, leading=25, alignment=TA_CENTER, spaceAfter=8 * mm,
     ))
     styles.add(ParagraphStyle(
-        name="StudyH1", parent=styles["Heading1"], fontSize=16,
+        name="StudyH1", parent=styles["Heading1"], fontName="StudySans-Bold", fontSize=16,
         leading=20, spaceBefore=5 * mm, spaceAfter=2 * mm,
     ))
     styles.add(ParagraphStyle(
-        name="StudyH2", parent=styles["Heading2"], fontSize=13,
+        name="StudyH2", parent=styles["Heading2"], fontName="StudySans-Bold", fontSize=13,
         leading=17, spaceBefore=4 * mm, spaceAfter=2 * mm,
     ))
     styles.add(ParagraphStyle(
-        name="StudyH3", parent=styles["Heading3"], fontSize=11,
+        name="StudyH3", parent=styles["Heading3"], fontName="StudySans-Bold", fontSize=11,
         leading=14, spaceBefore=3 * mm, spaceAfter=1.5 * mm,
     ))
     styles.add(ParagraphStyle(
-        name="StudyBody", parent=styles["BodyText"], fontSize=9.5,
+        name="StudyBody", parent=styles["BodyText"], fontName="StudySans", fontSize=9.5,
         leading=14, spaceAfter=2.5 * mm,
     ))
     styles.add(ParagraphStyle(
-        name="StudyCode", parent=styles["Code"], fontName="Courier", fontSize=8,
+        name="StudyCode", parent=styles["Code"], fontName="StudyMono", fontSize=8,
         leading=10, leftIndent=5 * mm, rightIndent=5 * mm, spaceAfter=3 * mm,
     ))
     styles.add(ParagraphStyle(
-        name="StudyQuote", parent=styles["BodyText"], fontName="Helvetica-Oblique",
+        name="StudyQuote", parent=styles["BodyText"], fontName="StudySans-Italic",
         leftIndent=8 * mm, rightIndent=5 * mm, textColor=colors.HexColor("#444444"),
         spaceAfter=3 * mm,
     ))
     styles.add(ParagraphStyle(
-        name="StudySmall", parent=styles["BodyText"], fontSize=8,
+        name="StudySmall", parent=styles["BodyText"], fontName="StudySans", fontSize=8,
         leading=10,
     ))
     story = [Paragraph(escape(title), styles["StudyTitle"])]

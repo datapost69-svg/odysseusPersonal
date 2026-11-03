@@ -287,11 +287,12 @@ def test_import_audio_persists_local_timestamped_transcript(tmp_path, monkeypatc
     monkeypatch.setattr(study, "_index_records", lambda root, module_id, records: len(records))
     root = study._owner_root("student")
     study._write_json(root / "modules.json", [{"id": "law", "name": "Public Law"}])
-    upload = UploadFile(filename="Lecture 1.wav", file=BytesIO(b"audio-bytes"))
+    upload = UploadFile(filename="Lecture Économie.wav", file=BytesIO(b"audio-bytes"))
 
     result = asyncio.run(study.import_audio("law", upload, "student"))
 
     assert result["lecture"]["duration"] == 9.0
+    assert result["lecture"]["title"] == "Lecture Économie"
     assert result["segments"][0]["start"] == 1.0
     transcript_path = root / "modules" / "law" / "transcripts" / f"{result['lecture']['id']}.json"
     assert transcript_path.is_file()
@@ -314,12 +315,13 @@ def test_import_source_indexes_pages_and_exposes_ocr_warnings(tmp_path, monkeypa
     monkeypatch.setattr(study, "_index_records", lambda root, module_id, records: indexed.extend(records) or len(records))
     root = study._owner_root("student")
     study._write_json(root / "modules.json", [{"id": "law", "name": "Public Law"}])
-    upload = UploadFile(filename="Week 1.pptx", file=BytesIO(b"pptx-bytes"))
+    upload = UploadFile(filename="Semaine Économie.pptx", file=BytesIO(b"pptx-bytes"))
 
     result = asyncio.run(study.import_source(
         "law", upload, "slides", "england_wales", "student"
     ))
 
+    assert result["source"]["title"] == "Semaine Économie"
     assert result["source"]["material_type"] == "slides"
     assert result["source"]["extraction_warnings"] == ["Tesseract OCR is not installed."]
     assert indexed[0]["location"] == "slide 1"

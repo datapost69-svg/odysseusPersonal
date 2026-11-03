@@ -134,6 +134,7 @@ async def import_audio(
         transcript = await run_in_threadpool(_transcribe_local, str(audio_path))
     except Exception as exc:
         logger.exception("Local study transcription failed")
+        audio_path.unlink(missing_ok=True)
         raise HTTPException(500, f"Local transcription failed: {exc}")
     record = {
         "id": item_id,
@@ -565,11 +566,14 @@ async def import_source(
     try:
         pages = await run_in_threadpool(_extract_source, original, suffix)
     except ImportError as exc:
+        original.unlink(missing_ok=True)
         raise HTTPException(503, f"Local parser dependency is missing: {exc.name}")
     except Exception as exc:
         logger.exception("Study document extraction failed")
+        original.unlink(missing_ok=True)
         raise HTTPException(422, f"Could not extract text from this document: {exc}")
     if not pages:
+        original.unlink(missing_ok=True)
         raise HTTPException(
             422,
             "No extractable text was found. If this is a scanned PDF or image-only PowerPoint, install local Tesseract OCR and try again.",
@@ -580,6 +584,7 @@ async def import_source(
         subtitle_text = original.read_text(encoding="utf-8-sig", errors="replace")
         segments = _parse_subtitle_transcript(subtitle_text)
         if not segments:
+            original.unlink(missing_ok=True)
             raise HTTPException(422, "No valid timestamped captions were found in this transcript.")
         transcript_record = {
             "id": source_id, "source_id": source_id, "module_id": module_id,

@@ -59,3 +59,61 @@ def test_local_transcriber_returns_timestamped_segments(monkeypatch, tmp_path):
     assert result["duration"] == 12.0
     assert result["segments"] == [{"start": 1.25, "end": 2.75, "text": "A lecture sentence."}]
     monkeypatch.delattr(_transcribe_local, "_model", raising=False)
+
+
+def test_semantic_index_is_local_and_returns_source_locations(tmp_path, monkeypatch):
+    import numpy as np
+    import routes.study_routes as study
+
+    class FakeEmbedder:
+        def encode(self, texts, normalize_embeddings=True):
+            vectors = []
+            for text in texts:
+                lowered = text.casefold()
+                vector = [1.0, 0.0] if "democracy" in lowered else [0.0, 1.0]
+                vectors.append(vector)
+            return np.asarray(vectors, dtype="float32")
+
+    monkeypatch.setattr(study, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(study, "_study_embedder", FakeEmbedder())
+    root = study._owner_root("student")
+    modules = [{"id": "politics", "name": "Politics"}, {"id": "history", "name": "History"}]
+    study._index_records(root, "politics", [{
+        "source_id": "lecture-1", "source_type": "lecture", "title": "Week 1",
+        "location": "lecture 02:10–03:40", "text": "Democracy and political representation",
+    }])
+    study._index_records(root, "history", [{
+        "source_id": "reading-1", "source_type": "document", "title": "Reading A",
+        "location": "p. 12", "text": "Medieval trade routes and port cities",
+    }])
+
+    hits = study._semantic_search(root, modules, "democracy")
+    assert len(hits) == 1
+    assert hits[0]["module"] == "Politics"
+    assert hits[0]["source"] == "Week 1"
+    assert hits[0]["location"] == "lecture 02:10–03:40"
+    assert hits[0]["source_type"] == "lecture"
+    assert (root / "modules" / "politics" / "semantic_index.json").is_file()
+    assert (root / "modules" / "history" / "semantic_index.json").is_file()
+
+
+def test_semantic_search_can_be_limited_to_one_module(tmp_path, monkeypatch):
+    import numpy as np
+    import routes.study_routes as study
+
+    class FakeEmbedder:
+        def encode(self, texts, normalize_embeddings=True):
+            return np.asarray([[1.0, 0.0] for _ in texts], dtype="float32")
+
+    monkeypatch.setattr(study, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(study, "_study_embedder", FakeEmbedder())
+    root = study._owner_root("student")
+    modules = [{"id": "a", "name": "A"}, {"id": "b", "name": "B"}]
+    for module in modules:
+        study._index_records(root, module["id"], [{
+            "source_id": f"source-{module['id']}", "source_type": "document",
+            "title": f"Source {module['id']}", "location": "p. 1", "text": "Shared concept",
+        }])
+    hits = study._semantic_search(root, modules, "concept", module_id="b")
+    assert len(hits) == 1
+    assert hits[0]["module_id"] == "b"

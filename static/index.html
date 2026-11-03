@@ -2704,6 +2704,23 @@
           <p class="study-muted">Live capture opens the Windows screen-sharing picker. Choose your screen and enable system-audio sharing. If unavailable, import a recording instead. Audio is transcribed locally.</p>
         </section>
         <section class="study-card">
+          <div class="study-label">Course materials</div>
+          <div class="study-row">
+            <label class="study-import-label" for="study-source-import">Add PDF, PowerPoint, Word or text file</label>
+            <input id="study-source-import" type="file" accept=".pdf,.pptx,.docx,.txt,.md" hidden>
+          </div>
+          <div id="study-source-list" class="study-lecture-list" style="margin-top:8px"><div class="study-muted">No course materials added yet.</div></div>
+          <p class="study-muted">Files are extracted and indexed locally. Scanned PDFs will need OCR support in a later stage.</p>
+        </section>
+        <section class="study-card">
+          <div class="study-label">Search across your modules</div>
+          <div class="study-row">
+            <input id="study-search-query" type="search" placeholder="Search concepts, arguments or keywords">
+            <button id="study-search-button" type="button">Search library</button>
+          </div>
+          <div id="study-search-results" class="study-lecture-list" style="margin-top:8px"></div>
+        </section>
+        <section class="study-card">
           <div class="study-label">Lecture recordings</div>
           <div id="study-lecture-list" class="study-lecture-list"><div class="study-muted">Choose a module to see its recordings.</div></div>
         </section>

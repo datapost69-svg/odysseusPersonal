@@ -240,7 +240,7 @@ def _extract_source(path: Path, suffix: str) -> list[dict]:
                     image = bitmap.to_pil()
                     ocr_text = _ocr_image(image)
                     if ocr_text:
-                        text = (text + "\\n" + ocr_text).strip()
+                        text = (text + "\n" + ocr_text).strip()
                 except RuntimeError as exc:
                     if not text:
                         raise
@@ -279,7 +279,7 @@ def _extract_source(path: Path, suffix: str) -> list[dict]:
                     bits.append("Speaker notes: " + notes.strip())
             except (AttributeError, KeyError, ValueError):
                 pass
-            text = "\\n".join(x.strip() for x in bits if x and x.strip())
+            text = "\n".join(x.strip() for x in bits if x and x.strip())
             if text:
                 row = {"location": f"slide {number}", "text": text}
                 if warnings:
@@ -294,7 +294,7 @@ def _extract_source(path: Path, suffix: str) -> list[dict]:
                 pages.append({"location": f"paragraph {number}", "text": text})
         for table_no, table in enumerate(doc.tables, 1):
             rows = [" | ".join(cell.text.strip() for cell in row.cells) for row in table.rows]
-            text = "\\n".join(row for row in rows if row.strip())
+            text = "\n".join(row for row in rows if row.strip())
             if text:
                 pages.append({"location": f"table {table_no}", "text": text})
     elif suffix in {".txt", ".md"}:

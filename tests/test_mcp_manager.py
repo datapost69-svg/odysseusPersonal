@@ -117,7 +117,7 @@ def test_study_is_a_builtin_server_with_native_agent_tool_schemas():
     mgr._tools["study"] = [
         {"name": "study_search_material", "description": "Search local study material",
          "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}}},
-        {"name": "study_save_notes", "description": "Generate and save notes",
+        {"name": "study_save_notes", "description": "Save agent-authored notes",
          "input_schema": {"type": "object", "properties": {"module_id": {"type": "string"}}}},
     ]
     mgr._connections["study"] = {"status": "connected", "name": "Built-in: Local Study Library"}
@@ -134,7 +134,7 @@ def test_study_is_a_builtin_server_with_native_agent_tool_schemas():
     assert "mcp__study__study_save_notes" in prompt
 
 
-def test_study_note_generation_is_write_blocked_in_plan_mode():
+def test_study_note_saving_is_write_blocked_in_plan_mode():
     mgr = McpManager()
     mgr._tools["study"] = [
         {"name": "study_search_material", "description": "Search"},

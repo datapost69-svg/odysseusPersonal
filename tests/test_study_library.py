@@ -191,6 +191,7 @@ def test_safe_note_filename_removes_path_components():
     from routes.study_routes import _safe_note_filename
     assert "/" not in _safe_note_filename("../../Criminal Law: Seminar 2")
     assert chr(92) not in _safe_note_filename("Criminal" + chr(92) + "Law")
+    assert "Économie" in _safe_note_filename("Économie politique")
 
 
 def test_pdf_extraction_uses_local_ocr_for_scanned_pages(tmp_path, monkeypatch):

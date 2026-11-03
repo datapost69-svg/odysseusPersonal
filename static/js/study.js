@@ -28,7 +28,6 @@ function renderModules() {
     modules.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join("");
   select.value = activeModule;
   $("study-empty")?.classList.toggle("hidden", modules.length > 0);
-  $("study-workspace")?.classList.toggle("hidden", modules.length === 0);
 }
 async function loadModules() {
   const data = await api("/api/study/modules");
@@ -206,9 +205,9 @@ function init() {
   $("study-module")?.addEventListener("change", async e => { activeModule = e.target.value; await Promise.all([loadLectures(), loadSources()]).catch(err => toast(err.message)); });
   $("study-start")?.addEventListener("click", startCapture);
   $("study-stop")?.addEventListener("click", stopCapture);
-  $("study-import")?.addEventListener("change", e => importAudio(e.target.files?.[0]));
+  $("study-import")?.addEventListener("change", e => { importAudio(e.target.files?.[0]); e.target.value = ""; });
   $("study-refresh")?.addEventListener("click", () => Promise.all([loadLectures(), loadSources()]).catch(e => toast(e.message)));
-  $("study-source-import")?.addEventListener("change", e => importSource(e.target.files?.[0]));
+  $("study-source-import")?.addEventListener("change", e => { importSource(e.target.files?.[0]); e.target.value = ""; });
   $("study-search-button")?.addEventListener("click", () => searchLibrary());
   $("study-search-query")?.addEventListener("keydown", e => { if (e.key === "Enter") searchLibrary(); });
 }

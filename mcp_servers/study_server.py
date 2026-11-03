@@ -32,9 +32,30 @@ def _study():
 
 
 def _text(value) -> list[TextContent]:
+    # Keep tool responses valid JSON. A hard string slice can corrupt the JSON
+    # and silently discard the pagination metadata needed to retrieve the rest.
+    if isinstance(value, dict):
+        value = dict(value)
+        for key in ("chunks", "segments", "results"):
+            rows = value.get(key)
+            if not isinstance(rows, list):
+                continue
+            while rows and len(json.dumps(value, ensure_ascii=False, default=str)) > MAX_RESULT_CHARS:
+                rows.pop()
+            if key in {"chunks", "segments"}:
+                flag = "has_more_chunks" if key == "chunks" else "has_more_segments"
+                value[flag] = bool(value.get(flag) or len(rows) < value.get("chunks_total" if key == "chunks" else "segments_total", len(rows)))
+            if len(rows) < len(value.get(key, [])):
+                value["truncated"] = True
+            # Search results do not have offset pagination; callers can narrow
+            # the query when a response has been shortened to fit the MCP limit.
+            break
     rendered = json.dumps(value, ensure_ascii=False, indent=2, default=str)
     if len(rendered) > MAX_RESULT_CHARS:
-        rendered = rendered[:MAX_RESULT_CHARS] + "\n[Truncated. Retrieve a narrower source or passage.]"
+        rendered = json.dumps({
+            "error": "The requested payload is too large. Retrieve fewer chunks or transcript segments per call.",
+            "max_result_chars": MAX_RESULT_CHARS,
+        })
     # Odysseus normalises stdio MCP errors when TextContent begins with Error:.
     # Preserve the structured payload while ensuring failures are not reported as success.
     if isinstance(value, dict) and value.get("error"):

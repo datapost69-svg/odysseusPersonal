@@ -691,7 +691,7 @@ def setup_study_routes():
 
 
 def _safe_note_filename(value: str) -> str:
-    stem = re.sub(r"[^A-Za-z0-9._ -]+", "", value).strip(" .-_")
+    stem = re.sub(r"[^\\w. -]+", "", value, flags=re.UNICODE).strip(" .-_")
     return (stem or "Study notes")[:100]
 
 

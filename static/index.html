@@ -2706,6 +2706,9 @@
         <section class="study-card">
           <div class="study-label">Course materials</div>
           <div class="study-row">
+            <select id="study-material-type" aria-label="Course material type">
+              <option value="reading">Reading</option><option value="slides">Lecture slides</option><option value="other" selected>Other material</option>
+            </select>
             <label class="study-import-label" for="study-source-import">Add PDF, PowerPoint, Word or text file</label>
             <input id="study-source-import" type="file" accept=".pdf,.pptx,.docx,.txt,.md" hidden>
           </div>
@@ -2734,6 +2737,30 @@
           <div id="study-answer" class="study-answer hidden" aria-live="polite"></div>
           <div id="study-answer-sources" class="study-answer-sources"></div>
           <p class="study-muted">Uses only your local library and a model running in Ollama on this device. If the sources do not support an answer, it should say so.</p>
+        </section>
+        <section class="study-card">
+          <div class="study-label">Obsidian vault</div>
+          <div class="study-row">
+            <input id="study-vault-path" type="text" placeholder="Full path to your existing Obsidian vault folder">
+            <button id="study-vault-save" type="button">Save location</button>
+          </div>
+          <p class="study-muted">Your vault stays on this device. Odysseus writes Markdown notes into a folder for the selected module.</p>
+          <div id="study-vault-status" class="study-muted">Obsidian vault not configured.</div>
+        </section>
+        <section class="study-card">
+          <div class="study-label">Generate study notes</div>
+          <div class="study-row">
+            <select id="study-note-type" aria-label="Note type">
+              <option value="general">General lecture notes</option>
+              <option value="targeted">Targeted seminar preparation</option>
+            </select>
+          </div>
+          <textarea id="study-note-brief" rows="2" placeholder="Optional: lecture topic, note title, or paste the seminar sheet questions here. Targeted notes will prepare you to reason about them, not answer them."></textarea>
+          <div class="study-row" style="justify-content:flex-end">
+            <button id="study-generate-notes" type="button">Generate and save to Obsidian</button>
+          </div>
+          <div id="study-note-status" class="study-muted" aria-live="polite"></div>
+          <div id="study-note-preview" class="study-note-preview hidden"></div>
         </section>
         <section class="study-card">
           <div class="study-label">Lecture recordings</div>

@@ -2641,6 +2641,8 @@ export async function materializePendingSession() {
 
     const incognitoChk = document.getElementById('incognito-toggle');
     const isIncognito = incognitoChk && incognitoChk.checked;
+    const isolatedMemoryChk = document.getElementById('isolated-memory-toggle');
+    const isolatedMemory = !isIncognito && !!(isolatedMemoryChk && isolatedMemoryChk.checked);
     const base = (pending.modelId || 'model').split('/').pop();
     const name = isIncognito ? 'Nobody' : `${base} ${new Date().toLocaleTimeString()}`;
 
@@ -2648,6 +2650,7 @@ export async function materializePendingSession() {
     fd.append('name', name);
     fd.append('endpoint_url', pending.url || '');
     fd.append('model', pending.modelId || '');
+    fd.append('isolated_memory', isolatedMemory ? 'true' : 'false');
     if (pending.url && pending.modelId) {
       fd.append('skip_validation', 'true');
     }
@@ -2694,6 +2697,7 @@ export async function materializePendingSession() {
       try { window.documentModule.clearSelection(); } catch {}
     }
     _pendingChat = null;
+    if (isolatedMemoryChk) isolatedMemoryChk.checked = false;
     currentSessionId = payload.id;
     window.dispatchEvent(new CustomEvent('odysseus:session-changed', {
       detail: { sessionId: payload.id, materialized: true },

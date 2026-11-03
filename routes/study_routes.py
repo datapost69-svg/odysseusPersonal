@@ -26,6 +26,8 @@ _study_embedder = None
 router = APIRouter(prefix="/api/study", tags=["study"])
 MAX_AUDIO_BYTES = 512 * 1024 * 1024
 ALLOWED_AUDIO_SUFFIXES = {".webm", ".wav", ".mp3", ".m4a", ".mp4", ".mpeg", ".mpga", ".ogg", ".flac", ".aac"}
+JURISDICTIONS = {"england_wales", "uk_wide", "scotland", "northern_ireland", "eu", "other", "unknown"}
+JURISDICTION_LABELS = {"england_wales": "England and Wales", "uk_wide": "UK-wide", "scotland": "Scotland", "northern_ireland": "Northern Ireland", "eu": "European Union", "other": "Other jurisdiction", "unknown": "Unconfirmed jurisdiction"}
 
 
 def _owner_root(owner: str) -> Path:
@@ -292,6 +294,7 @@ def _index_records(root: Path, module_id: str, records: list[dict]) -> int:
             "source_id": record.get("source_id"),
             "source_type": record.get("source_type", "document"),
             "material_type": record.get("material_type", "other"),
+            "jurisdiction": record.get("jurisdiction", "england_wales"),
             "embedding_model": getattr(embedder, "model", "local-fastembed"),
             "title": record.get("title", "Untitled source"),
             "location": record.get("location", "unknown location"),
@@ -329,6 +332,7 @@ def _ensure_module_semantic_index(root: Path, module: dict) -> None:
             records.extend({
                 "source_id": source.get("id"), "source_type": "document",
                 "material_type": source.get("material_type", "other"),
+                "jurisdiction": source.get("jurisdiction", "england_wales"),
                 "title": source.get("title"), "location": chunk.get("location"),
                 "text": chunk.get("text", ""),
             } for chunk in source.get("chunks", []))
@@ -349,7 +353,7 @@ def _ensure_module_semantic_index(root: Path, module: dict) -> None:
                 start = max(0, int(float(group[0].get("start", 0))))
                 end = max(start, int(float(group[-1].get("end", start))))
                 records.append({
-                    "source_id": transcript.get("id"), "source_type": "lecture",
+                    "source_id": transcript.get("id"), "source_type": "lecture", "jurisdiction": transcript.get("jurisdiction", "england_wales"),
                     "title": transcript.get("title"),
                     "location": f"lecture {start // 60:02d}:{start % 60:02d}–{end // 60:02d}:{end % 60:02d}",
                     "text": " ".join(segment.get("text", "") for segment in group),
@@ -389,6 +393,7 @@ def _semantic_search(root: Path, modules: list[dict], query: str, module_id: str
                 "source_id": row.get("source_id"),
                 "source_type": row.get("source_type"),
                 "material_type": row.get("material_type", "other"),
+                "jurisdiction": row.get("jurisdiction", "england_wales"),
                 "location": row.get("location"),
                 "snippet": row.get("text", ""),
                 "score": round(score, 4),
@@ -404,11 +409,13 @@ async def import_source(
     module_id: str = Form(...),
     file: UploadFile = File(...),
     material_type: str = Form("other"),
+    jurisdiction: str = Form("england_wales"),
     owner: str = Depends(require_user),
 ):
     root = _owner_root(owner)
     _module(root, module_id)
     material_type = material_type if material_type in {"reading", "slides", "other"} else "other"
+    jurisdiction = jurisdiction if jurisdiction in JURISDICTIONS else "unknown"
     suffix = Path(file.filename or "").suffix.lower()
     allowed = {".pdf", ".pptx", ".docx", ".txt", ".md"}
     if suffix not in allowed:
@@ -441,6 +448,7 @@ async def import_source(
         "filename": safe_name,
         "format": suffix.lstrip("."),
         "material_type": material_type,
+        "jurisdiction": jurisdiction,
         "file": original.relative_to(root).as_posix(),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "pages": len(pages),
@@ -450,7 +458,7 @@ async def import_source(
     try:
         await run_in_threadpool(
             _index_records, root, module_id, [
-                {"source_id": source_id, "source_type": "document", "material_type": material_type,
+                {"source_id": source_id, "source_type": "document", "material_type": material_type, "jurisdiction": jurisdiction,
                  "title": record["title"], "location": chunk["location"], "text": chunk["text"]}
                 for chunk in chunks
             ]
@@ -619,6 +627,7 @@ async def ask_study_library(payload: dict, owner: str = Depends(require_user)):
     for index, hit in enumerate(hits, 1):
         evidence.append(
             f"[S{index}] Module: {hit['module']} | Source: {hit['source']} | "
+            f"Jurisdiction: {JURISDICTION_LABELS.get(hit.get('jurisdiction', 'england_wales'), 'Unconfirmed')} | "
             f"Location: {hit['location']}\n{hit['snippet']}"
         )
     system_prompt = (
@@ -671,6 +680,7 @@ async def ask_study_library(payload: dict, owner: str = Depends(require_user)):
                 "source": hit["source"],
                 "source_id": hit["source_id"],
                 "source_type": hit["source_type"],
+                "jurisdiction": hit.get("jurisdiction", "england_wales"),
                 "location": hit["location"],
                 "snippet": hit["snippet"],
                 "score": hit["score"],
@@ -795,7 +805,8 @@ async def generate_study_notes(payload: dict, owner: str = Depends(require_user)
     evidence = []
     for index, hit in enumerate(hits, 1):
         role = "lecture transcript" if hit.get("source_type") == "lecture" else hit.get("material_type", "course document")
-        evidence.append(f"[S{index}] {role} | {hit['source']} | {hit['location']}\n{hit['snippet']}")
+        jurisdiction_label = JURISDICTION_LABELS.get(hit.get("jurisdiction", "england_wales"), "Unconfirmed jurisdiction")
+        evidence.append(f"[S{index}] {role} | {hit['source']} | Jurisdiction: {jurisdiction_label} | {hit['location']}\n{hit['snippet']}")
     if note_type == "general":
         instructions = (
             "Create comprehensive but readable GENERAL LECTURE NOTES. Lecture transcripts and slide decks "
@@ -844,7 +855,7 @@ async def generate_study_notes(payload: dict, owner: str = Depends(require_user)
         raise HTTPException(502, "The local model returned empty notes.")
     citations = "\n\n## Sources\n"
     for index, hit in enumerate(hits, 1):
-        citations += f"\n- [S{index}] **{hit['source']}** — {hit['location']} ({hit['module']})"
+        citations += f"\n- [S{index}] **{hit['source']}** — {hit['location']} ({hit['module']}; jurisdiction: {JURISDICTION_LABELS.get(hit.get('jurisdiction', 'england_wales'), 'Unconfirmed')})"
     note = f"# {title}\n\n> Jurisdiction: England and Wales. Generated from your local course library.\n\n{markdown}{citations}\n"
     module_folder = _safe_note_filename(module.get("name", "Module"))
     note_folder = vault / module_folder

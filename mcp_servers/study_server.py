@@ -45,7 +45,10 @@ def _text(value) -> list[TextContent]:
                 rows.pop()
             if key in {"chunks", "segments"}:
                 flag = "has_more_chunks" if key == "chunks" else "has_more_segments"
-                value[flag] = bool(value.get(flag) or len(rows) < value.get("chunks_total" if key == "chunks" else "segments_total", len(rows)))
+                offset_key = "chunk_offset" if key == "chunks" else "segment_offset"
+                total_key = "chunks_total" if key == "chunks" else "segments_total"
+                next_offset = int(value.get(offset_key, 0) or 0) + len(rows)
+                value[flag] = bool(value.get(flag) or next_offset < value.get(total_key, next_offset))
             if len(rows) < original_count:
                 value["truncated"] = True
             # Search results do not have offset pagination; callers can narrow

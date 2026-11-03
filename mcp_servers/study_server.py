@@ -81,7 +81,7 @@ async def list_tools() -> list[Tool]:
                  "module_id":{"type":"string"}},
                  "required":["module_id"],"additionalProperties":False}),
         Tool(name="study_search_material",
-             description="Search the authenticated user's local study library semantically across all modules or one selected module. Returns excerpts with module, source, material_type (reading, slides, seminar_sheet or other), jurisdiction and page/slide/timestamp references. For targeted seminar preparation, readings are primary; seminar sheets guide topic selection; lectures and slides are supplementary. Never use this workflow to draft answers to seminar questions. Read-only.",
+             description="Search the authenticated user's local study library semantically across all modules or one selected module. Returns excerpts with module, source, material_type (reading, slides, seminar_sheet, transcript or other), jurisdiction and page/slide/timestamp references. For targeted seminar preparation, readings are primary; seminar sheets guide topic selection; lectures and slides are supplementary. Never use this workflow to draft answers to seminar questions. Read-only.",
              inputSchema={"type":"object","properties":{
                  "query":{"type":"string","minLength":2,"maxLength":1000},
                  "module_id":{"type":"string","description":"Optional module ID; omit to search all modules."},

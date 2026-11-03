@@ -326,3 +326,62 @@ def test_import_source_indexes_pages_and_exposes_ocr_warnings(tmp_path, monkeypa
     assert result["source"]["extraction_warnings"] == ["Tesseract OCR is not installed."]
     assert indexed[0]["location"] == "slide 1"
     assert indexed[0]["text"] == "Lecture slide content"
+
+
+def test_subtitle_parser_preserves_srt_and_webvtt_timestamps():
+    import routes.study_routes as study
+
+    srt = (
+        "1\\n00:00:01,200 --> 00:00:03,400\\n"
+        "The lecturer introduces judicial review.\\n\\n"
+        "2\\n00:01:02,000 --> 00:01:05,500\\n"
+        "The second principle is proportionality.\\n"
+    )
+    vtt = (
+        "WEBVTT\\n\\n"
+        "00:00:04.000 --> 00:00:06.250\\n"
+        "<v Lecturer>We now turn to parliamentary sovereignty.</v>\\n"
+    )
+
+    srt_segments = study._parse_subtitle_transcript(srt)
+    vtt_segments = study._parse_subtitle_transcript(vtt)
+
+    assert srt_segments[0] == {
+        "start": 1.2, "end": 3.4,
+        "text": "The lecturer introduces judicial review.",
+    }
+    assert srt_segments[1]["start"] == 62.0
+    assert vtt_segments[0]["start"] == 4.0
+    assert vtt_segments[0]["end"] == 6.25
+    assert "parliamentary sovereignty" in vtt_segments[0]["text"]
+
+
+def test_import_subtitle_transcript_saves_timestamped_segments(tmp_path, monkeypatch):
+    import asyncio
+    from io import BytesIO
+    from starlette.datastructures import UploadFile
+    import routes.study_routes as study
+
+    monkeypatch.setattr(study, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(study, "_index_records", lambda root, module_id, records: len(records))
+    root = study._owner_root("student")
+    study._write_json(root / "modules.json", [{"id": "law", "name": "Public Law"}])
+    subtitle = (
+        "WEBVTT\\n\\n"
+        "00:00:10.000 --> 00:00:12.500\\n"
+        "The lecturer defines the rule of law.\\n\\n"
+        "00:00:13.000 --> 00:00:15.000\\n"
+        "The principle is developed in the next case.\\n"
+    )
+    upload = UploadFile(filename="Week 1 lecture.vtt", file=BytesIO(subtitle.encode("utf-8")))
+
+    result = asyncio.run(study.import_source(
+        "law", upload, "transcript", "england_wales", "student"
+    ))
+
+    assert result["source"]["material_type"] == "transcript"
+    assert result["source"]["format"] == "vtt"
+    transcript_path = root / "modules" / "law" / "transcripts" / f"{result['source']['id']}.json"
+    transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
+    assert transcript["segments"][0]["start"] == 10.0
+    assert "rule of law" in transcript["segments"][0]["text"]

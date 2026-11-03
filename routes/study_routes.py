@@ -220,10 +220,10 @@ def _ocr_image(image) -> str:
 def _parse_subtitle_transcript(text: str) -> list[dict]:
     """Parse WebVTT or SubRip captions into timestamped transcript segments."""
     rows = []
-    blocks = re.split(r"\\r?\\n\\s*\\r?\\n", text.replace("\\ufeff", "").strip())
+    blocks = re.split(r"\r?\n\s*\r?\n", text.replace("\ufeff", "").strip())
     timestamp = re.compile(
-        r"(?:(\\d{1,2}):)?(\\d{2}):(\\d{2})[,.](\\d{3})\\s*-->\\s*"
-        r"(?:(\\d{1,2}):)?(\\d{2}):(\\d{2})[,.](\\d{3})"
+        r"(?:(\d{1,2}):)?(\d{2}):(\d{2})[,.](\d{3})\s*-->\s*"
+        r"(?:(\d{1,2}):)?(\d{2}):(\d{2})[,.](\d{3})"
     )
     for block in blocks:
         lines = [line.strip() for line in block.splitlines() if line.strip()]
@@ -242,7 +242,7 @@ def _parse_subtitle_transcript(text: str) -> list[dict]:
         # Strip common WebVTT markup while preserving the words.
         caption = re.sub(r"<[^>]+>", "", " ".join(caption_lines))
         caption = unescape(caption)
-        caption = re.sub(r"\\s+", " ", caption).strip()
+        caption = re.sub(r"\s+", " ", caption).strip()
         if caption and end >= start:
             rows.append({"start": round(start, 3), "end": round(end, 3), "text": caption})
     return rows

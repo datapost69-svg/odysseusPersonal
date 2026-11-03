@@ -40,6 +40,8 @@ def _text(value) -> list[TextContent]:
             rows = value.get(key)
             if not isinstance(rows, list):
                 continue
+            rows = list(rows)
+            value[key] = rows
             original_count = len(rows)
             while rows and len(json.dumps(value, ensure_ascii=False, indent=2, default=str)) > MAX_RESULT_CHARS:
                 rows.pop()

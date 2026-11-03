@@ -323,6 +323,31 @@ async def search_study_library(q: str, module_id: str | None = None, owner: str 
                         "snippet": chunk.get("text", "")[:700],
                         "score": round(score, 3),
                     })
+        # Lecture transcripts participate in the same cross-module search.
+        transcript_folder = root / "modules" / module["id"] / "transcripts"
+        if transcript_folder.exists():
+            for transcript_path in transcript_folder.glob("*.json"):
+                try:
+                    transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    continue
+                for segment in transcript.get("segments", []):
+                    text = segment.get("text", "")
+                    words = re.findall(r"[\w'-]{2,}", text.casefold())
+                    counts = {term: words.count(term) for term in query_terms}
+                    score = sum(min(count, 4) for count in counts.values()) / max(1, len(query_terms))
+                    if score:
+                        start = max(0, int(float(segment.get("start", 0))))
+                        timestamp = f"{start // 60:02d}:{start % 60:02d}"
+                        results.append({
+                            "module": module.get("name"),
+                            "module_id": module.get("id"),
+                            "source": transcript.get("title"),
+                            "source_id": transcript.get("id"),
+                            "location": f"lecture {timestamp}",
+                            "snippet": text[:700],
+                            "score": round(score, 3),
+                        })
     results.sort(key=lambda x: x["score"], reverse=True)
     return {"results": results[:20], "count": len(results), "scope": "local"}
 

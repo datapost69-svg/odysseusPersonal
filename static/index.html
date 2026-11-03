@@ -248,7 +248,7 @@
   <link rel="preload" as="font" type="font/woff2" crossorigin href="/static/fonts/FiraCode-Regular.woff2">
   <link rel="preload" as="font" type="font/woff2" crossorigin href="/static/fonts/FiraCode-SemiBold.woff2">
   <link rel="stylesheet" href="/static/css/00-tokens.css?v=20261021confirmalign1">
-  <link rel="stylesheet" href="/static/css/01-agent-chat.css?v=20261021confirmalign1">
+  <link rel="stylesheet" href="/static/css/01-agent-chat.css?v=20261103isolatedmemui1">
   <link rel="stylesheet" href="/static/css/02-compare.css?v=20261021confirmalign1">
   <link rel="stylesheet" href="/static/css/03-agent-chat.css?v=20261021confirmalign1">
   <link rel="stylesheet" href="/static/css/04-memory.css?v=20261021confirmalign1">
@@ -1022,10 +1022,6 @@
         </svg>
         <span class="incognito-label">Nobody</span>
       </button>
-      <label for="isolated-memory-toggle" style="display:flex;align-items:center;gap:9px;margin:14px auto 0;max-width:300px;text-align:left;font-size:13px;color:var(--text-secondary);cursor:pointer;">
-        <input type="checkbox" id="isolated-memory-toggle" style="accent-color:var(--accent);width:15px;height:15px;flex:0 0 auto;">
-        <span><strong style="display:block;color:var(--text-primary);font-weight:600;">Isolated memory</strong><span style="font-size:11px;opacity:.8;">Starts fresh, without memories from other chats. Forks copy this chat's memory.</span></span>
-      </label>
       <div id="welcome-setup" style="display:none"></div>
     </div>
     <script nonce="{{CSP_NONCE}}">
@@ -1173,6 +1169,10 @@
               </button>
             </div>
           </div>
+          <label class="isolated-memory-option" for="isolated-memory-toggle" title="Give this new chat its own private memory. Forks inherit a snapshot.">
+            <input type="checkbox" id="isolated-memory-toggle" aria-label="Isolated memory">
+            <span>Private memory</span>
+          </label>
           <!-- Web search (magnifying glass) -->
           <button type="button" class="input-icon-btn" title="Web search" id="web-toggle-btn" data-mode-tool="true" aria-label="Web search" aria-pressed="false">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

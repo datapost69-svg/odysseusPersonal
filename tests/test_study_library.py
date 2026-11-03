@@ -340,7 +340,7 @@ def test_subtitle_parser_preserves_srt_and_webvtt_timestamps():
     vtt = (
         "WEBVTT\\n\\n"
         "00:00:04.000 --> 00:00:06.250\\n"
-        "<v Lecturer>We now turn to parliamentary sovereignty.</v>\\n"
+        "<v Lecturer>We now turn to law &amp; order.</v>\\n"
     )
 
     srt_segments = study._parse_subtitle_transcript(srt)
@@ -353,7 +353,7 @@ def test_subtitle_parser_preserves_srt_and_webvtt_timestamps():
     assert srt_segments[1]["start"] == 62.0
     assert vtt_segments[0]["start"] == 4.0
     assert vtt_segments[0]["end"] == 6.25
-    assert "parliamentary sovereignty" in vtt_segments[0]["text"]
+    assert "law & order" in vtt_segments[0]["text"]
 
 
 def test_import_subtitle_transcript_saves_timestamped_segments(tmp_path, monkeypatch):

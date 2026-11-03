@@ -191,3 +191,67 @@ def test_safe_note_filename_removes_path_components():
     from routes.study_routes import _safe_note_filename
     assert "/" not in _safe_note_filename("../../Criminal Law: Seminar 2")
     assert chr(92) not in _safe_note_filename("Criminal" + chr(92) + "Law")
+
+
+def test_pdf_extraction_uses_local_ocr_for_scanned_pages(tmp_path, monkeypatch):
+    import sys
+    import types
+    import routes.study_routes as study
+
+    class FakePage:
+        def extract_text(self):
+            return ""
+
+    class FakeReader:
+        def __init__(self, path):
+            self.pages = [FakePage()]
+
+    class FakeBitmap:
+        def to_pil(self):
+            return object()
+
+    class FakePdfPage:
+        def render(self, scale):
+            assert scale >= 1.5
+            return FakeBitmap()
+
+    class FakePdf:
+        def __getitem__(self, index):
+            assert index == 0
+            return FakePdfPage()
+
+    monkeypatch.setitem(sys.modules, "pypdf", types.SimpleNamespace(PdfReader=FakeReader))
+    monkeypatch.setitem(sys.modules, "pypdfium2", types.SimpleNamespace(PdfDocument=lambda path: FakePdf()))
+    monkeypatch.setattr(study, "_ocr_image", lambda image: "Recognised scanned lecture text")
+    pdf_path = tmp_path / "scan.pdf"
+    pdf_path.write_bytes(b"%PDF-placeholder")
+
+    pages = study._extract_source(pdf_path, ".pdf")
+
+    assert pages == [{"location": "p. 1", "text": "Recognised scanned lecture text"}]
+
+
+def test_powerpoint_extraction_includes_speaker_notes_and_image_ocr(tmp_path, monkeypatch):
+    from io import BytesIO
+    from PIL import Image
+    from pptx import Presentation
+    from pptx.util import Inches
+    import routes.study_routes as study
+
+    image_buffer = BytesIO()
+    Image.new("RGB", (40, 40), "white").save(image_buffer, format="PNG")
+    image_buffer.seek(0)
+    presentation = Presentation()
+    slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+    slide.shapes.add_picture(image_buffer, Inches(1), Inches(1), width=Inches(1))
+    slide.notes_slide.notes_text_frame.text = "Remember the lecturer's example."
+    path = tmp_path / "lecture.pptx"
+    presentation.save(path)
+
+    monkeypatch.setattr(study, "_ocr_image", lambda image: "Text inside slide diagram")
+    pages = study._extract_source(path, ".pptx")
+
+    assert len(pages) == 1
+    assert pages[0]["location"] == "slide 1"
+    assert "Text inside slide diagram" in pages[0]["text"]
+    assert "Remember the lecturer's example." in pages[0]["text"]

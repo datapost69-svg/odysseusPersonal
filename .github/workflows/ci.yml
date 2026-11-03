@@ -161,7 +161,7 @@ jobs:
         if: steps.docs-check.outputs.docs_only != 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ffmpeg bubblewrap ca-certificates
+          sudo apt-get install -y --no-install-recommends ffmpeg bubblewrap ca-certificates fonts-dejavu-core
           python scripts/check_ca_trust.py --system
           command -v ffmpeg
           ffmpeg -version | head -n 1

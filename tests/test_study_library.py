@@ -220,6 +220,9 @@ def test_pdf_extraction_uses_local_ocr_for_scanned_pages(tmp_path, monkeypatch):
             assert index == 0
             return FakePdfPage()
 
+        def close(self):
+            pass
+
     monkeypatch.setitem(sys.modules, "pypdf", types.SimpleNamespace(PdfReader=FakeReader))
     monkeypatch.setitem(sys.modules, "pypdfium2", types.SimpleNamespace(PdfDocument=lambda path: FakePdf()))
     monkeypatch.setattr(study, "_ocr_image", lambda image: "Recognised scanned lecture text")

@@ -73,7 +73,7 @@ async def list_tools() -> list[Tool]:
                  "segment_limit":{"type":"integer","minimum":1,"maximum":500,"default":100}},
                  "required":["module_id","lecture_id"],"additionalProperties":False}),
         Tool(name="study_save_notes",
-             description="Render completed Markdown notes composed by Odysseus's current agent as a PDF in the authenticated user's local Study library. Lecture notes are saved under the module's Lecture Notes folder; seminar preparation notes under Seminar Notes. The filename is '<title> - notes.pdf'. This tool only renders and saves supplied notes; it does not invoke a model or generate notes. Call automatically once a complete lecture or seminar note document is ready. This is a write operation.",
+             description="Render completed Markdown notes composed by Odysseus's current agent as a PDF in the authenticated user's local Study library. Lecture notes are saved under the module's Lecture Notes folder; seminar preparation notes under Seminar Notes. The filename is '<title> - notes.pdf'. This tool only renders and saves supplied notes; it does not invoke a model or generate notes. MUST be called as the final step whenever a complete lecture or seminar note document is ready; do not leave completed notes unsaved. This is a write operation.",
              inputSchema={"type":"object","properties":{
                  "module_id":{"type":"string"},
                  "title":{"type":"string","minLength":1,"maxLength":160},

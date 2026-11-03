@@ -735,13 +735,38 @@ def save_notes_as_pdf(payload: dict, owner: str) -> dict:
         SimpleDocTemplate, Paragraph, Spacer, Preformatted, Table, TableStyle,
     )
 
-    # ReportLab's bundled Vera fonts cover Latin, Greek and Cyrillic text,
-    # unlike the built-in Helvetica fonts which silently lose many characters.
+    # Prefer an installed Unicode font (Arial on Windows, DejaVu Sans on
+    # Linux). ReportLab's bundled Vera fallback is deliberately last: it is
+    # reliable for basic Latin but does not cover every academic character.
+    windows_fonts = Path(os.getenv("WINDIR", r"C:\\Windows")) / "Fonts"
+    font_sets = [
+        (windows_fonts / "arial.ttf", windows_fonts / "arialbd.ttf",
+         windows_fonts / "ariali.ttf", windows_fonts / "arialbi.ttf"),
+        (windows_fonts / "segoeui.ttf", windows_fonts / "segoeuib.ttf",
+         windows_fonts / "segoeuii.ttf", windows_fonts / "segoeuiz.ttf"),
+        (Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+         Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
+         Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf"),
+         Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-BoldOblique.ttf")),
+        (Path("/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"),
+         Path("/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf"),
+         Path("/usr/share/fonts/truetype/liberation2/LiberationSans-Italic.ttf"),
+         Path("/usr/share/fonts/truetype/liberation2/LiberationSans-BoldItalic.ttf")),
+    ]
     font_dir = Path(reportlab.__file__).parent / "fonts"
-    pdfmetrics.registerFont(TTFont("StudySans", str(font_dir / "Vera.ttf")))
-    pdfmetrics.registerFont(TTFont("StudySans-Bold", str(font_dir / "VeraBd.ttf")))
-    pdfmetrics.registerFont(TTFont("StudySans-Italic", str(font_dir / "VeraIt.ttf")))
-    pdfmetrics.registerFont(TTFont("StudySans-BoldItalic", str(font_dir / "VeraBI.ttf")))
+    font_sets.append((
+        font_dir / "Vera.ttf", font_dir / "VeraBd.ttf",
+        font_dir / "VeraIt.ttf", font_dir / "VeraBI.ttf",
+    ))
+    selected_fonts = next(
+        (font_set for font_set in font_sets if all(path.is_file() for path in font_set)),
+        font_sets[-1],
+    )
+    for name, font_path in zip(
+        ("StudySans", "StudySans-Bold", "StudySans-Italic", "StudySans-BoldItalic"),
+        selected_fonts,
+    ):
+        pdfmetrics.registerFont(TTFont(name, str(font_path)))
     registerFontFamily(
         "StudySans", normal="StudySans", bold="StudySans-Bold",
         italic="StudySans-Italic", boldItalic="StudySans-BoldItalic",

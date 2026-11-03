@@ -147,7 +147,6 @@ async function generateStudyNotes() {
         module_id:activeModule,
         note_type:$("study-note-type").value,
         brief:$("study-note-brief").value.trim(),
-        title:$("study-note-title").value.trim(),
         model
       })
     });

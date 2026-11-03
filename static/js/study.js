@@ -83,28 +83,6 @@ async function searchLibrary() {
   } catch (error) { list.innerHTML = `<div class="study-muted">${esc(error.message)}</div>`; }
 }
 
-async function loadStudyModels() {
-  const select = $("study-model-select");
-  if (!select) return;
-  select.innerHTML = '<option value="">Checking local Ollama…</option>';
-  try {
-    const data = await api("/api/study/models");
-    if (!data.available || !data.models.length) {
-      select.innerHTML = '<option value="">No local Ollama models found</option>';
-      toast("Start Ollama and ensure you have a chat model installed to ask questions.");
-      return;
-    }
-    const preferred = data.models.find(name => /qwen|llama|mistral/i.test(name)) || data.models[0];
-    select.innerHTML = data.models.map(name =>
-      `<option value="${esc(name)}">${esc(name)}</option>`
-    ).join("");
-    select.value = preferred;
-  } catch (error) {
-    select.innerHTML = '<option value="">Local Ollama unavailable</option>';
-    toast(error.message);
-  }
-}
-
 async function loadObsidianVault() {
   try {
     const data = await api("/api/study/vault");
@@ -130,78 +108,6 @@ async function saveObsidianVault() {
   } catch (error) { toast(error.message); }
   finally { button.disabled = false; }
 }
-async function generateStudyNotes() {
-  if (!activeModule) return toast("Choose a module first.");
-  const model = $("study-model-select").value;
-  if (!model) return toast("Choose an installed local Ollama model.");
-  const button = $("study-generate-notes");
-  const status = $("study-note-status");
-  const preview = $("study-note-preview");
-  button.disabled = true;
-  button.textContent = "Generating…";
-  status.textContent = "Retrieving course material and generating notes locally. This may take a few minutes.";
-  preview.classList.add("hidden");
-  try {
-    const data = await api("/api/study/notes/generate", {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        module_id:activeModule,
-        note_type:$("study-note-type").value,
-        brief:$("study-note-brief").value.trim(),
-        model
-      })
-    });
-    preview.textContent = data.note;
-    preview.classList.remove("hidden");
-    status.textContent = "Saved " + data.sources + " cited source passages to " + data.path;
-    toast("Notes saved to your local Obsidian vault.");
-  } catch (error) {
-    status.textContent = error.message;
-    toast(error.message);
-  } finally {
-    button.disabled = false;
-    button.textContent = "Generate and save to Obsidian";
-  }
-}
-
-async function askLibrary() {
-  const question = $("study-question").value.trim();
-  const model = $("study-model-select").value;
-  if (!question) return toast("Enter a question first.");
-  if (!model) return toast("Choose an installed local Ollama model.");
-  const button = $("study-ask-button");
-  const answer = $("study-answer");
-  const sources = $("study-answer-sources");
-  button.disabled = true;
-  button.textContent = "Thinking…";
-  answer.classList.remove("hidden");
-  answer.textContent = "Searching your local library and preparing a grounded answer…";
-  sources.innerHTML = "";
-  try {
-    const data = await api("/api/study/ask", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({question, module_id: $("study-ask-all-modules").checked ? null : (activeModule || null), model})
-    });
-    answer.textContent = data.answer;
-    answer.classList.toggle("study-answer-ungrounded", !data.grounded);
-    if (data.sources?.length) {
-      sources.innerHTML = '<div class="study-label">Sources used</div>' + data.sources.map(source =>
-        `<article class="study-source-citation"><div><strong>[${esc(source.marker)}] ${esc(source.source)}</strong><small>${esc(source.module)} · ${esc(source.location)}</small></div><p>${esc(source.snippet)}</p></article>`
-      ).join("");
-    } else {
-      sources.innerHTML = '<div class="study-muted">No sufficiently relevant source passages were found.</div>';
-    }
-    toast(data.grounded ? "Answer generated using local sources." : "No sufficiently relevant source evidence found.");
-  } catch (error) {
-    answer.textContent = error.message;
-    answer.classList.add("study-answer-ungrounded");
-  } finally {
-    button.disabled = false;
-    button.textContent = "Ask library";
-  }
-}
-
 async function openLecture(id) {
   const data = await api(`/api/study/modules/${encodeURIComponent(activeModule)}/lectures/${encodeURIComponent(id)}`);
   $("study-transcript-title").textContent = data.title;
@@ -312,7 +218,6 @@ function openPanel() {
   panel?.classList.remove("hidden");
   panel?.setAttribute("aria-hidden", "false");
   loadModules().catch(e => toast(e.message));
-  loadStudyModels();
   loadObsidianVault();
 }
 function closePanel() {
@@ -332,10 +237,7 @@ function init() {
   $("study-refresh")?.addEventListener("click", () => Promise.all([loadLectures(), loadSources()]).catch(e => toast(e.message)));
   $("study-source-import")?.addEventListener("change", e => { importSource(e.target.files?.[0]); e.target.value = ""; });
   $("study-search-button")?.addEventListener("click", () => searchLibrary());
-  $("study-ask-button")?.addEventListener("click", () => askLibrary());
   $("study-vault-save")?.addEventListener("click", saveObsidianVault);
-  $("study-generate-notes")?.addEventListener("click", generateStudyNotes);
-  $("study-question")?.addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) askLibrary(); });
   $("study-search-query")?.addEventListener("keydown", e => { if (e.key === "Enter") searchLibrary(); });
 }
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, {once:true});

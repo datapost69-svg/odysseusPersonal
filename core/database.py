@@ -195,6 +195,7 @@ class Session(TimestampMixin, Base):
     archived = Column(Boolean, default=False)
     memory_extraction_enabled = Column(Boolean, default=True)
     memory_injection_enabled = Column(Boolean, default=True)
+    isolated_memory = Column(Boolean, nullable=False, default=False)
     skill_injection_enabled = Column(Boolean, default=True)
     thinking_mode = Column(String, nullable=True, default="off")
     temperature_override = Column(Float, nullable=True, default=None)
@@ -257,6 +258,7 @@ class Session(TimestampMixin, Base):
             'archived': self.archived,
             'memory_extraction_enabled': self.memory_extraction_enabled is not False,
             'memory_injection_enabled': self.memory_injection_enabled is not False,
+            'isolated_memory': self.isolated_memory is True,
             'skill_injection_enabled': self.skill_injection_enabled is not False,
             'thinking_mode': self.thinking_mode or '',
             'temperature_override': self.temperature_override,
@@ -1031,6 +1033,28 @@ def _migrate_add_memory_injection_enabled_column():
             logging.getLogger(__name__).info("Migrated: added memory_injection_enabled to sessions")
     except Exception as e:
         logging.getLogger(__name__).warning(f"memory_injection_enabled migration failed: {e}")
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+def _migrate_add_isolated_memory_column():
+    """Add per-session isolated memory scope (off for existing sessions)."""
+    import sqlite3
+    db_path = DATABASE_URL.replace("sqlite:///", "")
+    if not os.path.exists(db_path):
+        return
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path)
+        columns = [row[1] for row in conn.execute("PRAGMA table_info(sessions)").fetchall()]
+        if "isolated_memory" not in columns:
+            conn.execute("ALTER TABLE sessions ADD COLUMN isolated_memory BOOLEAN NOT NULL DEFAULT 0")
+            conn.commit()
+            logging.getLogger(__name__).info("Migrated: added isolated_memory to sessions")
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"isolated_memory migration failed: {e}")
     finally:
         try:
             conn.close()
@@ -2425,6 +2449,7 @@ def init_db():
     _migrate_add_last_message_at_column()
     _migrate_add_memory_extraction_enabled_column()
     _migrate_add_memory_injection_enabled_column()
+    _migrate_add_isolated_memory_column()
     _migrate_add_skill_injection_enabled_column()
     _migrate_add_session_generation_settings_columns()
     _migrate_add_folder_column()

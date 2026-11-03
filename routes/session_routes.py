@@ -497,6 +497,7 @@ def setup_session_routes(
                     "endpoint_id": bound_id or (selected_endpoint.id if selected_endpoint else None),
                     "endpoint_name": selected_endpoint.name if selected_endpoint else None,
                     "rag": s.rag,
+                    "isolated_memory": getattr(s, "isolated_memory", False) is True,
                     "archived": s.archived,
                     "folder": s.folder,
                     "cwd": s.cwd,
@@ -528,6 +529,7 @@ def setup_session_routes(
         api_key: str = Form(""),
         endpoint_id: str = Form(""),
         cwd: str = Form(None),
+        isolated_memory: str = Form("false"),
     ):
         skip_val = str(skip_validation).lower() == "true"
         user = effective_user(request)
@@ -630,6 +632,7 @@ def setup_session_routes(
             owner=user,
             cwd=cwd or None,
             endpoint_id=endpoint_id.strip() if endpoint_id else None,
+            isolated_memory=str(isolated_memory).strip().lower() in ("true", "1", "yes", "on"),
         )
         # Set auth headers for custom API-key endpoints
         resolved_key = request_api_key

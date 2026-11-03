@@ -186,12 +186,18 @@ class MemoryManager:
         """
         return self._read_entries()
 
-    def load(self, owner: str = None) -> List[Dict]:
-        """Load memory entries, optionally filtered by owner."""
+    def load(self, owner: str = None, session_id: str = None) -> List[Dict]:
+        """Load memories filtered by owner and, optionally, one chat.
+
+        Supplying session_id deliberately returns ONLY that chat's memories;
+        it never includes owner-wide/shared memories.
+        """
         entries = self.load_all()
-        if owner is None:
-            return entries
-        return [e for e in entries if e.get("owner") == owner]
+        if owner is not None:
+            entries = [e for e in entries if e.get("owner") == owner]
+        if session_id is not None:
+            entries = [e for e in entries if e.get("session_id") == session_id]
+        return entries
 
     def claim_ownerless(self, owner: str):
         """Assign all ownerless memory entries to the given owner."""

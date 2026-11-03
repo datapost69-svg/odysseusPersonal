@@ -152,6 +152,7 @@ class SessionManager:
             is_important=getattr(db_session, "is_important", False) or False,
             memory_extraction_enabled=getattr(db_session, "memory_extraction_enabled", True) is not False,
             memory_injection_enabled=getattr(db_session, "memory_injection_enabled", True) is not False,
+            isolated_memory=getattr(db_session, "isolated_memory", False) is True,
             skill_injection_enabled=getattr(db_session, "skill_injection_enabled", True) is not False,
             thinking_mode=getattr(db_session, "thinking_mode", "") or "off",
             temperature_override=getattr(db_session, "temperature_override", None),
@@ -218,6 +219,7 @@ class SessionManager:
             is_important=getattr(db_session, 'is_important', False) or False,
             memory_extraction_enabled=getattr(db_session, 'memory_extraction_enabled', True) is not False,
             memory_injection_enabled=getattr(db_session, 'memory_injection_enabled', True) is not False,
+            isolated_memory=getattr(db_session, 'isolated_memory', False) is True,
             skill_injection_enabled=getattr(db_session, 'skill_injection_enabled', True) is not False,
             thinking_mode=getattr(db_session, "thinking_mode", "") or "off",
             temperature_override=getattr(db_session, "temperature_override", None),
@@ -501,6 +503,7 @@ class SessionManager:
             session.rag = db_session.rag
             session.archived = db_session.archived
             session.owner = getattr(db_session, "owner", None)
+            session.isolated_memory = getattr(db_session, "isolated_memory", False) is True
             session.is_important = getattr(db_session, "is_important", False) or False
             session.cwd = getattr(db_session, "cwd", None) or None
             session.message_count = (
@@ -567,6 +570,7 @@ class SessionManager:
         cwd: str = None,
         headers: Optional[Dict[str, str]] = None,
         endpoint_id: Optional[str] = None,
+        isolated_memory: bool = False,
     ) -> Session:
         """Create a new session and save to database."""
         from src.chatgpt_subscription import is_chatgpt_subscription_base
@@ -584,6 +588,7 @@ class SessionManager:
                 owner=owner,
                 cwd=cwd or None,
                 endpoint_id=endpoint_id,
+                isolated_memory=bool(isolated_memory),
                 created_at=datetime.now(timezone.utc),
                 updated_at=datetime.now(timezone.utc)
             )
@@ -600,6 +605,7 @@ class SessionManager:
                 owner=owner,
                 cwd=cwd or None,
                 endpoint_id=endpoint_id,
+                isolated_memory=bool(isolated_memory),
             )
 
             self.sessions[session_id] = session

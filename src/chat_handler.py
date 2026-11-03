@@ -349,11 +349,19 @@ class ChatHandler:
             message
         )
         if is_memory_cmd and memory_text:
-            mem = self.memory_manager.load()
+            isolated = bool(getattr(session, "isolated_memory", False))
+            owner = getattr(session, "owner", None)
+            mem = self.memory_manager.load(
+                owner=owner,
+                session_id=session.id if isolated else None,
+            )
             if not self.memory_manager.find_duplicates(memory_text, mem):
-                new_entry = self.memory_manager.add_entry(memory_text)
-                mem.append(new_entry)
-                self.memory_manager.save(mem)
+                new_entry = self.memory_manager.add_entry(memory_text, owner=owner)
+                if isolated:
+                    new_entry["session_id"] = session.id
+                mem_all = self.memory_manager.load_all_for_update()
+                mem_all.append(new_entry)
+                self.memory_manager.save(mem_all)
 
             session.add_message(ChatMessage("user", message))
             session.add_message(

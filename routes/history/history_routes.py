@@ -871,6 +871,7 @@ def setup_history_routes(session_manager, upload_handler=None) -> APIRouter:
                 rag=False,
                 owner=getattr(source, 'owner', None),
                 endpoint_id=getattr(source, 'endpoint_id', None),
+                isolated_memory=True,
             )
 
             # Copy messages up to keep_count
@@ -883,6 +884,36 @@ def setup_history_routes(session_manager, upload_handler=None) -> APIRouter:
                 # edit/delete-by-id on the original conversation.
                 meta = dict(msg.metadata) if isinstance(msg.metadata, dict) else None
                 new_session.add_message(ChatMessage(msg.role, msg.content, meta))
+            # A fork starts with a snapshot of the memories visible to its
+            # source chat, then becomes an independent memory space. For an
+            # already-isolated source, copy only that source's private memories;
+            # for a normal source, snapshot the owner-wide memories it could see.
+            try:
+                from src.constants import DATA_DIR
+                from src.memory import MemoryManager
+                memory_manager = MemoryManager(DATA_DIR)
+                all_memories = memory_manager.load_all_for_update()
+                source_owner = getattr(source, "owner", None)
+                if getattr(source, "isolated_memory", False):
+                    visible_memories = [
+                        m for m in all_memories
+                        if m.get("owner") == source_owner and m.get("session_id") == session_id
+                    ]
+                else:
+                    visible_memories = [m for m in all_memories if m.get("owner") == source_owner]
+                for memory in visible_memories:
+                    copied_memory = dict(memory)
+                    copied_memory["id"] = str(uuid.uuid4())
+                    copied_memory["session_id"] = new_id
+                    copied_memory["owner"] = source_owner
+                    copied_memory["uses"] = 0
+                    all_memories.append(copied_memory)
+                if visible_memories:
+                    memory_manager.save(all_memories)
+            except Exception:
+                logger.exception("Could not snapshot source memories while forking session %s", session_id)
+                raise
+
             try:
                 from src.event_bus import fire_event
                 fire_event("session_created", getattr(source, 'owner', None))
@@ -961,6 +992,7 @@ def setup_history_routes(session_manager, upload_handler=None) -> APIRouter:
                 "auto_compact_threshold": auto_threshold,
                 "memory_extraction_enabled": getattr(session, "memory_extraction_enabled", True) is not False,
                 "memory_injection_enabled": getattr(session, "memory_injection_enabled", True) is not False,
+                "isolated_memory": getattr(session, "isolated_memory", False) is True,
                 "skill_injection_enabled": getattr(session, "skill_injection_enabled", True) is not False,
                 "thinking_mode": (getattr(session, "thinking_mode", "") or "off") if thinking_supported else "off",
                 "thinking_supported": thinking_supported,

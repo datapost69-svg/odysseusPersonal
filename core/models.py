@@ -120,6 +120,7 @@ class Session:
     message_count: int = 0
     memory_extraction_enabled: bool = True
     memory_injection_enabled: bool = True
+    isolated_memory: bool = False
     skill_injection_enabled: bool = True
     thinking_mode: str = "off"
     temperature_override: Optional[float] = None

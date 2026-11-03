@@ -1381,10 +1381,21 @@ export async function extractMemory(sessionId) {
       btn.className = 'memory-item-btn save';
       btn.textContent = 'save';
       btn.addEventListener('click', async () => {
+        let isolatedMemory = false;
+        try {
+          const contextRes = await fetch(`${window.location.origin}/api/session/${encodeURIComponent(sessionId)}/context`);
+          if (contextRes.ok) {
+            const contextData = await contextRes.json();
+            isolatedMemory = contextData.isolated_memory === true;
+          }
+        } catch (_) {}
         await fetch(`${window.location.origin}/api/memory/add`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: s })
+          body: JSON.stringify({
+            text: s,
+            ...(isolatedMemory ? { session_id: sessionId } : {}),
+          })
         });
         btn.disabled = true;
         btn.textContent = 'saved';

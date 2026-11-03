@@ -61,6 +61,7 @@ async function importSource(file) {
   const form = new FormData();
   form.append("module_id", activeModule);
   form.append("file", file, file.name);
+  form.append("material_type", $("study-material-type")?.value || "other");
   toast("Extracting and indexing locally…");
   try {
     const data = await api("/api/study/sources", {method:"POST", body:form});
@@ -102,6 +103,66 @@ async function loadStudyModels() {
     toast(error.message);
   }
 }
+
+async function loadObsidianVault() {
+  try {
+    const data = await api("/api/study/vault");
+    $("study-vault-path").value = data.vault_path || "";
+    $("study-vault-status").textContent = data.configured
+      ? "Obsidian vault connected on this device."
+      : "Choose the folder of your existing Obsidian vault.";
+  } catch (error) { $("study-vault-status").textContent = error.message; }
+}
+async function saveObsidianVault() {
+  const vault_path = $("study-vault-path").value.trim();
+  if (!vault_path) return toast("Enter your Obsidian vault folder path.");
+  const button = $("study-vault-save");
+  button.disabled = true;
+  try {
+    const data = await api("/api/study/vault", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({vault_path})
+    });
+    $("study-vault-path").value = data.vault_path;
+    $("study-vault-status").textContent = "Obsidian vault connected on this device.";
+    toast("Obsidian vault location saved locally.");
+  } catch (error) { toast(error.message); }
+  finally { button.disabled = false; }
+}
+async function generateStudyNotes() {
+  if (!activeModule) return toast("Choose a module first.");
+  const model = $("study-model-select").value;
+  if (!model) return toast("Choose an installed local Ollama model.");
+  const button = $("study-generate-notes");
+  const status = $("study-note-status");
+  const preview = $("study-note-preview");
+  button.disabled = true;
+  button.textContent = "Generating…";
+  status.textContent = "Retrieving course material and generating notes locally. This may take a few minutes.";
+  preview.classList.add("hidden");
+  try {
+    const data = await api("/api/study/notes/generate", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        module_id:activeModule,
+        note_type:$("study-note-type").value,
+        brief:$("study-note-brief").value.trim(),
+        model
+      })
+    });
+    preview.textContent = data.note;
+    preview.classList.remove("hidden");
+    status.textContent = "Saved " + data.sources + " cited source passages to " + data.path;
+    toast("Notes saved to your local Obsidian vault.");
+  } catch (error) {
+    status.textContent = error.message;
+    toast(error.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Generate and save to Obsidian";
+  }
+}
+
 async function askLibrary() {
   const question = $("study-question").value.trim();
   const model = $("study-model-select").value;
@@ -251,6 +312,7 @@ function openPanel() {
   panel?.setAttribute("aria-hidden", "false");
   loadModules().catch(e => toast(e.message));
   loadStudyModels();
+  loadObsidianVault();
 }
 function closePanel() {
   stopCapture();
@@ -270,6 +332,8 @@ function init() {
   $("study-source-import")?.addEventListener("change", e => { importSource(e.target.files?.[0]); e.target.value = ""; });
   $("study-search-button")?.addEventListener("click", () => searchLibrary());
   $("study-ask-button")?.addEventListener("click", () => askLibrary());
+  $("study-vault-save")?.addEventListener("click", saveObsidianVault);
+  $("study-generate-notes")?.addEventListener("click", generateStudyNotes);
   $("study-question")?.addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) askLibrary(); });
   $("study-search-query")?.addEventListener("keydown", e => { if (e.key === "Enter") searchLibrary(); });
 }

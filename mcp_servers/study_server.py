@@ -72,14 +72,14 @@ async def list_tools() -> list[Tool]:
                  "segment_offset":{"type":"integer","minimum":0,"default":0},
                  "segment_limit":{"type":"integer","minimum":1,"maximum":500,"default":100}},
                  "required":["module_id","lecture_id"],"additionalProperties":False}),
-        Tool(name="study_generate_notes",
-             description="Generate either general lecture notes or targeted seminar preparation notes from the authenticated user's local module materials and save them to the configured local Obsidian vault. This writes a new Markdown file. Targeted notes must prepare understanding but must never answer seminar questions or draft model answers. Requires an installed local Ollama model.",
+        Tool(name="study_save_notes",
+             description="Save completed Markdown notes composed by Odysseus's current agent to the authenticated user's configured local Obsidian vault. This tool only writes the supplied content; it does not invoke a model or generate notes. Use after retrieving and synthesising the relevant course material. This is a write operation.",
              inputSchema={"type":"object","properties":{
                  "module_id":{"type":"string"},
+                 "title":{"type":"string","minLength":1,"maxLength":160},
                  "note_type":{"type":"string","enum":["general","targeted"]},
-                 "brief":{"type":"string","maxLength":2000},
-                 "model":{"type":"string","description":"Exact installed local Ollama model tag."}},
-                 "required":["module_id","note_type","model"],"additionalProperties":False})
+                 "markdown":{"type":"string","minLength":1,"maxLength":200000}},
+                 "required":["module_id","title","note_type","markdown"],"additionalProperties":False})
     ]
 
 
@@ -158,14 +158,14 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             row["has_more_segments"] = offset + limit < len(segments)
             return _text(row)
 
-        if name == "study_generate_notes":
+        if name == "study_save_notes":
             payload = {
                 "module_id": str(args.get("module_id") or "").strip(),
+                "title": str(args.get("title") or "").strip(),
                 "note_type": args.get("note_type"),
-                "brief": str(args.get("brief") or "")[:2000],
-                "model": str(args.get("model") or "").strip(),
+                "markdown": args.get("markdown"),
             }
-            result = await study.generate_study_notes(payload, owner)
+            result = await asyncio.to_thread(study.save_notes_to_vault, payload, owner)
             return _text(result)
 
         return _text({"error":f"Unknown study tool: {name}"})

@@ -297,11 +297,66 @@ def _index_records(root: Path, module_id: str, records: list[dict]) -> int:
     return len(records)
 
 
+def _ensure_module_semantic_index(root: Path, module: dict) -> None:
+    """Backfill the semantic index for documents imported before semantic search existed."""
+    module_id = module["id"]
+    path = _semantic_index_path(root, module_id)
+    indexed = set()
+    if path.exists():
+        try:
+            indexed = {
+                row.get("source_id") for row in json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(row, dict)
+            }
+        except (OSError, json.JSONDecodeError):
+            indexed = set()
+    records = []
+    source_dir = root / "modules" / module_id / "sources"
+    if source_dir.exists():
+        for source_path in source_dir.glob("*.json"):
+            try:
+                source = json.loads(source_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if source.get("id") in indexed:
+                continue
+            records.extend({
+                "source_id": source.get("id"), "source_type": "document",
+                "title": source.get("title"), "location": chunk.get("location"),
+                "text": chunk.get("text", ""),
+            } for chunk in source.get("chunks", []))
+    transcript_dir = root / "modules" / module_id / "transcripts"
+    if transcript_dir.exists():
+        for transcript_path in transcript_dir.glob("*.json"):
+            try:
+                transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if transcript.get("id") in indexed:
+                continue
+            segments = transcript.get("segments", [])
+            for offset in range(0, len(segments), 6):
+                group = segments[offset:offset + 6]
+                if not group:
+                    continue
+                start = max(0, int(float(group[0].get("start", 0))))
+                end = max(start, int(float(group[-1].get("end", start))))
+                records.append({
+                    "source_id": transcript.get("id"), "source_type": "lecture",
+                    "title": transcript.get("title"),
+                    "location": f"lecture {start // 60:02d}:{start % 60:02d}–{end // 60:02d}:{end % 60:02d}",
+                    "text": " ".join(segment.get("text", "") for segment in group),
+                })
+    if records:
+        _index_records(root, module_id, records)
+
+
 def _semantic_search(root: Path, modules: list[dict], query: str, module_id: str | None = None, limit: int = 8) -> list[dict]:
     embedder = _get_study_embedder()
     query_vector = embedder.encode([query], normalize_embeddings=True)[0]
     hits = []
     for module in modules:
+        _ensure_module_semantic_index(root, module)
         if module_id and module.get("id") != module_id:
             continue
         path = _semantic_index_path(root, module["id"])

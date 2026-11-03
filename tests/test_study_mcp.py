@@ -206,3 +206,27 @@ def test_study_mcp_large_pages_remain_valid_json_and_keep_pagination(tmp_path, m
     assert parsed["truncated"] is True
     assert parsed["has_more_chunks"] is True
     assert parsed["chunk_offset"] + len(parsed["chunks"]) < parsed["chunks_total"]
+
+
+def test_study_mcp_lists_imported_sources_and_transcript_ids(tmp_path, monkeypatch):
+    from mcp_servers import study_server
+
+    monkeypatch.setattr(study_routes, "DATA_DIR", str(tmp_path))
+    root = study_routes._owner_root("alice")
+    study_routes._write_json(root / "modules.json", [{"id": "law", "name": "Public Law"}])
+    sources = root / "modules" / "law" / "sources"
+    sources.mkdir(parents=True)
+    study_routes._write_json(sources / "source-1.json", {
+        "id": "source-1", "title": "Week 1 captions", "material_type": "transcript",
+        "format": "vtt", "chunks": [{"text": "caption"}],
+    })
+
+    result = asyncio.run(study_server.call_tool("study_list_sources", {
+        "_odysseus_owner": "alice", "module_id": "law",
+    }))
+    payload = json.loads(result[0].text)
+
+    assert payload["count"] == 1
+    assert payload["sources"][0]["id"] == "source-1"
+    assert payload["sources"][0]["material_type"] == "transcript"
+    assert "chunks" not in payload["sources"][0]

@@ -31,6 +31,8 @@ youtube-transcript-api
 yt-dlp
 # Local PDF rendering for completed Study notes.
 reportlab
+# Local OCR bridge; the Tesseract executable is installed separately on-device.
+pytesseract
 # Markdown rendering for research reports (src/visual_report.py).
 # Imported at module-top so it's a hard core dep, not optional.
 markdown

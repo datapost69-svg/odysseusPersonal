@@ -91,7 +91,7 @@ async def list_tools() -> list[Tool]:
                  "chunk_limit":{"type":"integer","minimum":1,"maximum":50,"default":20}},
                  "required":["module_id","source_id"],"additionalProperties":False}),
         Tool(name="study_get_transcript",
-             description="Retrieve a lecture transcript and timestamped segments by module ID and lecture ID. Read-only.",
+             description="Retrieve a lecture transcript and timestamped segments by module ID and lecture ID. Includes transcripts imported from SRT/WebVTT caption files as well as locally transcribed audio. Read-only.",
              inputSchema={"type":"object","properties":{
                  "module_id":{"type":"string"},"lecture_id":{"type":"string"},
                  "start_seconds":{"type":"number","minimum":0},

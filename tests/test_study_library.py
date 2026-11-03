@@ -270,3 +270,57 @@ def test_powerpoint_extraction_includes_speaker_notes_and_image_ocr(tmp_path, mo
     assert "120" in pages[0]["text"]
     assert "145" in pages[0]["text"]
     assert "Remember the lecturer's example." in pages[0]["text"]
+
+
+def test_import_audio_persists_local_timestamped_transcript(tmp_path, monkeypatch):
+    import asyncio
+    from io import BytesIO
+    from starlette.datastructures import UploadFile
+    import routes.study_routes as study
+
+    monkeypatch.setattr(study, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(study, "_transcribe_local", lambda path: {
+        "language": "en",
+        "duration": 9.0,
+        "segments": [{"start": 1.0, "end": 3.0, "text": "The lecturer explains the doctrine."}],
+    })
+    monkeypatch.setattr(study, "_index_records", lambda root, module_id, records: len(records))
+    root = study._owner_root("student")
+    study._write_json(root / "modules.json", [{"id": "law", "name": "Public Law"}])
+    upload = UploadFile(filename="Lecture 1.wav", file=BytesIO(b"audio-bytes"))
+
+    result = asyncio.run(study.import_audio("law", upload, "student"))
+
+    assert result["lecture"]["duration"] == 9.0
+    assert result["segments"][0]["start"] == 1.0
+    transcript_path = root / "modules" / "law" / "transcripts" / f"{result['lecture']['id']}.json"
+    assert transcript_path.is_file()
+    assert "The lecturer explains the doctrine." in transcript_path.read_text(encoding="utf-8")
+
+
+def test_import_source_indexes_pages_and_exposes_ocr_warnings(tmp_path, monkeypatch):
+    import asyncio
+    from io import BytesIO
+    from starlette.datastructures import UploadFile
+    import routes.study_routes as study
+
+    monkeypatch.setattr(study, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(study, "_extract_source", lambda path, suffix: [{
+        "location": "slide 1",
+        "text": "Lecture slide content",
+        "warnings": ["Tesseract OCR is not installed."],
+    }])
+    indexed = []
+    monkeypatch.setattr(study, "_index_records", lambda root, module_id, records: indexed.extend(records) or len(records))
+    root = study._owner_root("student")
+    study._write_json(root / "modules.json", [{"id": "law", "name": "Public Law"}])
+    upload = UploadFile(filename="Week 1.pptx", file=BytesIO(b"pptx-bytes"))
+
+    result = asyncio.run(study.import_source(
+        "law", upload, "slides", "england_wales", "student"
+    ))
+
+    assert result["source"]["material_type"] == "slides"
+    assert result["source"]["extraction_warnings"] == ["Tesseract OCR is not installed."]
+    assert indexed[0]["location"] == "slide 1"
+    assert indexed[0]["text"] == "Lecture slide content"

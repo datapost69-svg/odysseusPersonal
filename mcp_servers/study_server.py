@@ -36,7 +36,7 @@ def _text(value) -> list[TextContent]:
     # and silently discard the pagination metadata needed to retrieve the rest.
     if isinstance(value, dict):
         value = dict(value)
-        for key in ("chunks", "segments", "results"):
+        for key in ("chunks", "segments", "results", "sources"):
             rows = value.get(key)
             if not isinstance(rows, list):
                 continue
@@ -45,10 +45,12 @@ def _text(value) -> list[TextContent]:
             original_count = len(rows)
             while rows and len(json.dumps(value, ensure_ascii=False, indent=2, default=str)) > MAX_RESULT_CHARS:
                 rows.pop()
-            if key in {"chunks", "segments"}:
-                flag = "has_more_chunks" if key == "chunks" else "has_more_segments"
-                offset_key = "chunk_offset" if key == "chunks" else "segment_offset"
-                total_key = "chunks_total" if key == "chunks" else "segments_total"
+            if key in {"chunks", "segments", "sources"}:
+                flag, offset_key, total_key = {
+                    "chunks": ("has_more_chunks", "chunk_offset", "chunks_total"),
+                    "segments": ("has_more_segments", "segment_offset", "segments_total"),
+                    "sources": ("has_more_sources", "source_offset", "sources_total"),
+                }[key]
                 next_offset = int(value.get(offset_key, 0) or 0) + len(rows)
                 value[flag] = bool(value.get(flag) or next_offset < value.get(total_key, next_offset))
             if len(rows) < original_count:
@@ -78,7 +80,9 @@ async def list_tools() -> list[Tool]:
         Tool(name="study_list_sources",
              description="List imported source files in one module, including readings, slides, seminar sheets and timestamped transcripts. Returns source IDs needed by study_get_source and study_get_transcript. Read-only.",
              inputSchema={"type":"object","properties":{
-                 "module_id":{"type":"string"}},
+                 "module_id":{"type":"string"},
+                 "source_offset":{"type":"integer","minimum":0,"default":0},
+                 "source_limit":{"type":"integer","minimum":1,"maximum":100,"default":50}},
                  "required":["module_id"],"additionalProperties":False}),
         Tool(name="study_search_material",
              description="Search the authenticated user's local study library semantically across all modules or one selected module. Returns excerpts with module, source, material_type (reading, slides, seminar_sheet, transcript or other), jurisdiction and page/slide/timestamp references. For targeted seminar preparation, readings are primary; seminar sheets guide topic selection; lectures and slides are supplementary. Never use this workflow to draft answers to seminar questions. Read-only.",
@@ -141,7 +145,17 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     except (OSError, json.JSONDecodeError):
                         logger.warning("Skipping unreadable study source %s", source_path.name)
             rows.sort(key=lambda item: item.get("created_at", ""), reverse=True)
-            return _text({"module_id": module_id, "sources": rows, "count": len(rows)})
+            offset = args.get("source_offset", 0)
+            limit = args.get("source_limit", 50)
+            if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
+                raise ValueError("source_offset must be a non-negative integer.")
+            if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
+                raise ValueError("source_limit must be between 1 and 100.")
+            return _text({
+                "module_id": module_id, "sources_total": len(rows),
+                "source_offset": offset, "sources": rows[offset:offset + limit],
+                "has_more_sources": offset + limit < len(rows),
+            })
 
         if name == "study_search_material":
             query = str(args.get("query") or "").strip()

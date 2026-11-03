@@ -35,7 +35,7 @@ async function loadModules() {
   modules = data.modules || [];
   if (!modules.some(m => m.id === activeModule)) activeModule = modules[0]?.id || "";
   renderModules();
-  if (activeModule) await loadLectures();
+  if (activeModule) { await loadLectures(); await loadSources(); }
 }
 async function loadLectures() {
   if (!activeModule) return;
@@ -47,6 +47,41 @@ async function loadLectures() {
   ).join("") : '<div class="study-muted">No lecture recordings yet.</div>';
   list.querySelectorAll("[data-lecture-id]").forEach(btn => btn.addEventListener("click", () => openLecture(btn.dataset.lectureId)));
 }
+async function loadSources() {
+  if (!activeModule) return;
+  const data = await api(`/api/study/modules/${encodeURIComponent(activeModule)}/sources`);
+  const list = $("study-source-list");
+  if (!list) return;
+  list.innerHTML = data.sources.length ? data.sources.map(s =>
+    `<div class="study-lecture-row"><span>${esc(s.title)}</span><small>${esc(s.format.toUpperCase())} · ${s.pages} sections</small></div>`
+  ).join("") : '<div class="study-muted">No course materials added yet.</div>';
+}
+async function importSource(file) {
+  if (!file) return;
+  if (!activeModule) { toast("Choose a module first."); return; }
+  const form = new FormData();
+  form.append("module_id", activeModule);
+  form.append("file", file, file.name);
+  toast("Extracting and indexing locally…");
+  try {
+    const data = await api("/api/study/sources", {method:"POST", body:form});
+    await loadSources();
+    toast(`Added ${data.source.title} to this module.`);
+  } catch (error) { toast(error.message); }
+}
+async function searchLibrary() {
+  const query = $("study-search-query").value.trim();
+  if (!query) return toast("Enter something to search for.");
+  const list = $("study-search-results");
+  list.innerHTML = '<div class="study-muted">Searching your local library…</div>';
+  try {
+    const data = await api(`/api/study/search?q=${encodeURIComponent(query)}`);
+    list.innerHTML = data.results.length ? data.results.map(r =>
+      `<article class="study-search-result"><div><strong>${esc(r.source)}</strong><small>${esc(r.module)} · ${esc(r.location)}</small></div><p>${esc(r.snippet)}</p></article>`
+    ).join("") : '<div class="study-muted">No matching passages found.</div>';
+  } catch (error) { list.innerHTML = `<div class="study-muted">${esc(error.message)}</div>`; }
+}
+
 async function openLecture(id) {
   const data = await api(`/api/study/modules/${encodeURIComponent(activeModule)}/lectures/${encodeURIComponent(id)}`);
   $("study-transcript-title").textContent = data.title;
@@ -168,11 +203,14 @@ function init() {
   $("study-close")?.addEventListener("click", closePanel);
   $("study-panel")?.addEventListener("click", e => { if (e.target.id === "study-panel") closePanel(); });
   $("study-create-module")?.addEventListener("click", () => createModule().catch(e => toast(e.message)));
-  $("study-module")?.addEventListener("change", async e => { activeModule = e.target.value; await loadLectures().catch(err => toast(err.message)); });
+  $("study-module")?.addEventListener("change", async e => { activeModule = e.target.value; await Promise.all([loadLectures(), loadSources()]).catch(err => toast(err.message)); });
   $("study-start")?.addEventListener("click", startCapture);
   $("study-stop")?.addEventListener("click", stopCapture);
   $("study-import")?.addEventListener("change", e => importAudio(e.target.files?.[0]));
-  $("study-refresh")?.addEventListener("click", () => loadLectures().catch(e => toast(e.message)));
+  $("study-refresh")?.addEventListener("click", () => Promise.all([loadLectures(), loadSources()]).catch(e => toast(e.message)));
+  $("study-source-import")?.addEventListener("change", e => importSource(e.target.files?.[0]));
+  $("study-search-button")?.addEventListener("click", () => searchLibrary());
+  $("study-search-query")?.addEventListener("keydown", e => { if (e.key === "Enter") searchLibrary(); });
 }
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, {once:true});
 else init();

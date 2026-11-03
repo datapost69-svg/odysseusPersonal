@@ -73,6 +73,7 @@ _BUILTIN_SERVERS = {
     "image_gen":  ("mcp_servers/image_gen_server.py",  "Built-in: Image Generation"),
     "memory":     ("mcp_servers/memory_server.py",     "Built-in: Memory"),
     "rag":        ("mcp_servers/rag_server.py",        "Built-in: RAG"),
+    "study":      ("mcp_servers/study_server.py",      "Built-in: Local Study Library"),
     "email":      ("mcp_servers/email_server.py",      "Built-in: Email"),
 }
 

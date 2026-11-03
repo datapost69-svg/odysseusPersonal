@@ -55,7 +55,9 @@ async def list_tools() -> list[Tool]:
              description="Retrieve an imported course document's metadata and extracted text chunks by module ID and source ID. Read-only.",
              inputSchema={"type":"object","properties":{
                  "module_id":{"type":"string"},"source_id":{"type":"string"},
-                 "include_text":{"type":"boolean","default":True}},
+                 "include_text":{"type":"boolean","default":True},
+                 "chunk_offset":{"type":"integer","minimum":0,"default":0},
+                 "chunk_limit":{"type":"integer","minimum":1,"maximum":50,"default":20}},
                  "required":["module_id","source_id"],"additionalProperties":False}),
         Tool(name="study_get_transcript",
              description="Retrieve a lecture transcript and timestamped segments by module ID and lecture ID. Read-only.",
@@ -108,8 +110,14 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             if not path.is_file():
                 raise ValueError("Source not found in this module.")
             row = json.loads(path.read_text(encoding="utf-8"))
-            if not args.get("include_text", True):
-                row.pop("chunks", None)
+            chunks = row.pop("chunks", [])
+            if args.get("include_text", True):
+                offset = max(0, int(args.get("chunk_offset", 0)))
+                limit = max(1, min(int(args.get("chunk_limit", 20)), 50))
+                row["chunks_total"] = len(chunks)
+                row["chunk_offset"] = offset
+                row["chunks"] = chunks[offset:offset + limit]
+                row["has_more_chunks"] = offset + limit < len(chunks)
             return _text(row)
 
         if name == "study_get_transcript":

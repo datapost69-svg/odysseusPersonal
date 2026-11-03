@@ -143,6 +143,7 @@ async def import_audio(
         "audio_file": audio_path.relative_to(root).as_posix(),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "language": transcript["language"],
+        "jurisdiction": "england_wales",
         "duration": transcript["duration"],
         "segments": transcript["segments"],
     }
@@ -856,7 +857,8 @@ async def generate_study_notes(payload: dict, owner: str = Depends(require_user)
     citations = "\n\n## Sources\n"
     for index, hit in enumerate(hits, 1):
         citations += f"\n- [S{index}] **{hit['source']}** — {hit['location']} ({hit['module']}; jurisdiction: {JURISDICTION_LABELS.get(hit.get('jurisdiction', 'england_wales'), 'Unconfirmed')})"
-    note = f"# {title}\n\n> Jurisdiction: England and Wales. Generated from your local course library.\n\n{markdown}{citations}\n"
+    jurisdiction_summary = ", ".join(dict.fromkeys(JURISDICTION_LABELS.get(hit.get("jurisdiction", "england_wales"), "Unconfirmed jurisdiction") for hit in hits))
+    note = f"# {title}\n\n> Jurisdictions represented in cited sources: {jurisdiction_summary}. Generated from your local course library.\n\n{markdown}{citations}\n"
     module_folder = _safe_note_filename(module.get("name", "Module"))
     note_folder = vault / module_folder
     note_folder.mkdir(parents=True, exist_ok=True)

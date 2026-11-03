@@ -29,6 +29,8 @@ grpcio>=1.84.1
 fastembed>=0.9.1
 youtube-transcript-api
 yt-dlp
+# Local PDF rendering for completed Study notes.
+reportlab
 # Markdown rendering for research reports (src/visual_report.py).
 # Imported at module-top so it's a hard core dep, not optional.
 markdown

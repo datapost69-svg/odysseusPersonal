@@ -161,3 +161,30 @@ def test_study_mcp_errors_are_marked_as_tool_failures():
 
     assert result[0].text.startswith("Error: ")
     assert "Unknown study tool" in result[0].text
+
+def test_study_pdf_preserves_unicode_and_supplementary_markers(tmp_path, monkeypatch):
+    from pypdf import PdfReader
+
+    monkeypatch.setattr(study_routes, "DATA_DIR", str(tmp_path))
+    root = study_routes._owner_root("alice")
+    study_routes._write_json(root / "modules.json", [{"id": "law", "name": "Public Law"}])
+    payload = {
+        "module_id": "law",
+        "title": "Lecture – Courts and Αθήνα",
+        "note_type": "lecture",
+        "markdown": (
+            "# Key concepts\n\n"
+            "The court considered the principle of proportionality.\n\n"
+            "<span class=\"supplementary\">Supplementary context: Αθήνα and external research.</span>\n"
+        ),
+    }
+
+    result = study_routes.save_notes_as_pdf(payload, "alice")
+    extracted = " ".join(
+        page.extract_text() or "" for page in PdfReader(result["path"]).pages
+    )
+
+    assert "Key concepts" in extracted
+    assert "proportionality" in extracted
+    assert "Supplementary context" in extracted
+    assert "Αθήνα" in extracted

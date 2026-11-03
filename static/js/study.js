@@ -62,6 +62,7 @@ async function importSource(file) {
   form.append("module_id", activeModule);
   form.append("file", file, file.name);
   form.append("material_type", $("study-material-type")?.value || "other");
+  form.append("jurisdiction", $("study-jurisdiction")?.value || "england_wales");
   toast("Extracting and indexing locally…");
   try {
     const data = await api("/api/study/sources", {method:"POST", body:form});

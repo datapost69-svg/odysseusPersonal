@@ -189,7 +189,7 @@ def _extract_source(path: Path, suffix: str) -> list[dict]:
                     bits.append(shape.text)
                 if getattr(shape, "has_table", False):
                     bits.extend(cell.text for row in shape.table.rows for cell in row.cells)
-            text = "\\n".join(x.strip() for x in bits if x and x.strip())
+            text = "\n".join(x.strip() for x in bits if x and x.strip())
             if text:
                 pages.append({"location": f"slide {number}", "text": text})
     elif suffix == ".docx":
@@ -201,7 +201,7 @@ def _extract_source(path: Path, suffix: str) -> list[dict]:
                 pages.append({"location": f"paragraph {number}", "text": text})
         for table_no, table in enumerate(doc.tables, 1):
             rows = [" | ".join(cell.text.strip() for cell in row.cells) for row in table.rows]
-            text = "\\n".join(row for row in rows if row.strip())
+            text = "\n".join(row for row in rows if row.strip())
             if text:
                 pages.append({"location": f"table {table_no}", "text": text})
     elif suffix in {".txt", ".md"}:
@@ -302,8 +302,7 @@ async def search_study_library(q: str, module_id: str | None = None, owner: str 
     results = []
     for module in selected:
         folder = root / "modules" / module["id"] / "sources"
-        if not folder.exists():
-            continue
+        folder.mkdir(parents=True, exist_ok=True)
         for path in folder.glob("*.json"):
             try:
                 source = json.loads(path.read_text(encoding="utf-8"))

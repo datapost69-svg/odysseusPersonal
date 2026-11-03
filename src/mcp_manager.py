@@ -709,7 +709,7 @@ class McpManager:
             # They were historically omitted with the other Python-backed
             # tools because legacy models used text wrappers, but omitting
             # their schemas makes qualified email calls impossible to select.
-            if self.is_builtin(server_id) and server_id not in {"builtin_browser", "email"}:
+            if self.is_builtin(server_id) and server_id not in {"builtin_browser", "email", "study"}:
                 continue
             conn = self._connections.get(server_id, {})
             server_name = conn.get("name", server_id)
@@ -780,6 +780,7 @@ class McpManager:
             "memory",
             "rag",
             "email",
+            "study",
         }
 
     def get_server_status(self, server_id: str) -> Dict:
@@ -824,7 +825,7 @@ class McpManager:
             # Skip builtin Python servers that are already in the agent prompt.
             # Email is an exception: it also participates in native MCP schemas,
             # so the prose catalog must expose the same surface.
-            if self.is_builtin(t["server_id"]) and t["server_id"] not in {"builtin_browser", "email"}:
+            if self.is_builtin(t["server_id"]) and t["server_id"] not in {"builtin_browser", "email", "study"}:
                 continue
             if t.get("is_disabled"):
                 continue

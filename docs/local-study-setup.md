@@ -33,6 +33,6 @@ The PDF renderer selects Arial on Windows or DejaVu Sans on Linux when available
 
 Supported audio formats: WAV, MP3, M4A, MP4, WebM, OGG, FLAC and AAC.
 
-Supported course documents: PDF, PPTX, DOCX, TXT and Markdown.
+Supported course documents: PDF, PPTX, DOCX, TXT and Markdown. Downloaded lecture captions can be imported directly as SubRip (`.srt`) or WebVTT (`.vtt`); timestamps are retained and the transcript is available through `study_get_transcript`.
 
 Legacy binary PowerPoint/Word formats (`.ppt`, `.doc`) and standalone image uploads are not supported. Browser-based live system-audio capture is available through the screen-sharing picker. The video track is kept alive only to maintain the browser capture session; it is disabled and never recorded or stored. Capture is browser-dependent and should be treated as experimental; importing a saved lecture recording is the reliable path.

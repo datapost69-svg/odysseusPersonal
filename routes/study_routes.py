@@ -287,6 +287,7 @@ def _index_records(root: Path, module_id: str, records: list[dict]) -> int:
             "id": identity,
             "source_id": record.get("source_id"),
             "source_type": record.get("source_type", "document"),
+            "embedding_model": getattr(embedder, "model", "local-fastembed"),
             "title": record.get("title", "Untitled source"),
             "location": record.get("location", "unknown location"),
             "text": str(record.get("text", ""))[:1800],
@@ -301,11 +302,12 @@ def _ensure_module_semantic_index(root: Path, module: dict) -> None:
     module_id = module["id"]
     path = _semantic_index_path(root, module_id)
     indexed = set()
+    current_model = os.getenv("ODYSSEUS_STUDY_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
     if path.exists():
         try:
             indexed = {
                 row.get("source_id") for row in json.loads(path.read_text(encoding="utf-8"))
-                if isinstance(row, dict)
+                if isinstance(row, dict) and row.get("embedding_model") == current_model
             }
         except (OSError, json.JSONDecodeError):
             indexed = set()

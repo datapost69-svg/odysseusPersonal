@@ -135,7 +135,7 @@ async def import_audio(
         "id": item_id,
         "module_id": module_id,
         "title": safe_name.replace("-", " "),
-        "audio_file": str(audio_path.relative_to(root)).replace("\\", "/"),
+        "audio_file": audio_path.relative_to(root).as_posix(),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "language": transcript["language"],
         "duration": transcript["duration"],
@@ -266,7 +266,7 @@ async def import_source(
         "title": Path(safe_name).stem.replace("-", " "),
         "filename": safe_name,
         "format": suffix.lstrip("."),
-        "file": str(original.relative_to(root)).replace("\\\\", "/"),
+        "file": original.relative_to(root).as_posix(),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "pages": len(pages),
         "chunks": chunks,
@@ -293,7 +293,7 @@ async def list_sources(module_id: str, owner: str = Depends(require_user)):
 
 @router.get("/search")
 async def search_study_library(q: str, module_id: str | None = None, owner: str = Depends(require_user)):
-    query_terms = set(re.findall(r"[\\w'-]{2,}", q.casefold()))
+    query_terms = set(re.findall(r"[\w'-]{2,}", q.casefold()))
     if not query_terms:
         raise HTTPException(400, "Enter a search phrase")
     root = _owner_root(owner)
@@ -310,7 +310,7 @@ async def search_study_library(q: str, module_id: str | None = None, owner: str 
             except (OSError, json.JSONDecodeError):
                 continue
             for chunk in source.get("chunks", []):
-                words = re.findall(r"[\\w'-]{2,}", chunk.get("text", "").casefold())
+                words = re.findall(r"[\w'-]{2,}", chunk.get("text", "").casefold())
                 counts = {term: words.count(term) for term in query_terms}
                 score = sum(min(count, 4) for count in counts.values()) / max(1, len(query_terms))
                 if score:

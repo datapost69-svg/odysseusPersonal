@@ -194,13 +194,55 @@ def _transcribe_local(audio_path: str) -> dict:
 
 
 
+def _ocr_image(image) -> str:
+    """Run optional local Tesseract OCR on a PIL image; never use a remote service."""
+    try:
+        import pytesseract
+    except ImportError as exc:
+        raise RuntimeError(
+            "OCR support requires the local pytesseract package. Install the Study requirements."
+        ) from exc
+    command = os.getenv("ODYSSEUS_TESSERACT_CMD")
+    if command:
+        pytesseract.pytesseract.tesseract_cmd = command
+    language = os.getenv("ODYSSEUS_STUDY_OCR_LANG", "eng")
+    try:
+        return (pytesseract.image_to_string(image, lang=language) or "").strip()
+    except pytesseract.TesseractNotFoundError as exc:
+        raise RuntimeError(
+            "Tesseract OCR is not installed or not on PATH. Install the local Tesseract executable "
+            "and set ODYSSEUS_TESSERACT_CMD if it is outside PATH."
+        ) from exc
+
+
 def _extract_source(path: Path, suffix: str) -> list[dict]:
-    """Extract text locally while preserving page/slide/paragraph locations."""
+    """Extract text locally while preserving page/slide/paragraph locations.
+
+    Image OCR is performed only with the local Tesseract executable. No file or
+    extracted content is sent to a cloud OCR service.
+    """
+    from io import BytesIO
     pages: list[dict] = []
     if suffix == ".pdf":
         from pypdf import PdfReader
-        for number, page in enumerate(PdfReader(str(path)).pages, 1):
+        reader = PdfReader(str(path))
+        for number, page in enumerate(reader.pages, 1):
             text = (page.extract_text() or "").strip()
+            # OCR pages that have no meaningful text layer (typical scanned PDFs).
+            if len(text) < 80:
+                try:
+                    import pypdfium2 as pdfium
+                    pdf = pdfium.PdfDocument(str(path))
+                    bitmap = pdf[number - 1].render(scale=2.0)
+                    image = bitmap.to_pil()
+                    ocr_text = _ocr_image(image)
+                    if ocr_text:
+                        text = (text + "\\n" + ocr_text).strip()
+                except RuntimeError:
+                    # Keep any embedded text and report the OCR requirement only
+                    # when the document has no usable text at all.
+                    if not text:
+                        raise
             if text:
                 pages.append({"location": f"p. {number}", "text": text})
     elif suffix == ".pptx":
@@ -212,7 +254,25 @@ def _extract_source(path: Path, suffix: str) -> list[dict]:
                     bits.append(shape.text)
                 if getattr(shape, "has_table", False):
                     bits.extend(cell.text for row in shape.table.rows for cell in row.cells)
-            text = "\n".join(x.strip() for x in bits if x and x.strip())
+                # OCR text embedded as screenshots, scanned diagrams, or images.
+                if getattr(shape, "shape_type", None) == 13:  # MSO_SHAPE_TYPE.PICTURE
+                    try:
+                        from PIL import Image
+                        image = Image.open(BytesIO(shape.image.blob)).convert("RGB")
+                        image_text = _ocr_image(image)
+                        if image_text:
+                            bits.append(image_text)
+                    except RuntimeError:
+                        # Image OCR is optional for text-native presentations.
+                        logger.info("Skipping slide-image OCR because local Tesseract is unavailable")
+            # Include speaker notes where PowerPoint provides them.
+            try:
+                notes = slide.notes_slide.notes_text_frame.text
+                if notes and notes.strip():
+                    bits.append("Speaker notes: " + notes.strip())
+            except (AttributeError, KeyError, ValueError):
+                pass
+            text = "\\n".join(x.strip() for x in bits if x and x.strip())
             if text:
                 pages.append({"location": f"slide {number}", "text": text})
     elif suffix == ".docx":
@@ -224,7 +284,7 @@ def _extract_source(path: Path, suffix: str) -> list[dict]:
                 pages.append({"location": f"paragraph {number}", "text": text})
         for table_no, table in enumerate(doc.tables, 1):
             rows = [" | ".join(cell.text.strip() for cell in row.cells) for row in table.rows]
-            text = "\n".join(row for row in rows if row.strip())
+            text = "\\n".join(row for row in rows if row.strip())
             if text:
                 pages.append({"location": f"table {table_no}", "text": text})
     elif suffix in {".txt", ".md"}:
@@ -232,7 +292,6 @@ def _extract_source(path: Path, suffix: str) -> list[dict]:
         if text.strip():
             pages.append({"location": "text", "text": text.strip()})
     return pages
-
 
 def _source_chunks(pages: list[dict], size: int = 1400, overlap: int = 180) -> list[dict]:
     chunks = []

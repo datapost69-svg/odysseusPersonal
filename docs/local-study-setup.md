@@ -3,7 +3,7 @@
 ## What the Study workspace processes
 
 - Lecture audio files are transcribed on-device with Faster-Whisper. The transcript retains timestamps so the agent can cite lecture time ranges.
-- PowerPoint `.pptx` files are extracted slide by slide. Native text, tables, and speaker notes are included. Text inside embedded slide images is read with local Tesseract OCR.
+- PowerPoint `.pptx` files are extracted slide by slide. Native text, tables, chart titles/data, and speaker notes are included. Text inside embedded slide images is read with local Tesseract OCR.
 - PDFs are extracted page by page. Image-only/scanned pages are rendered locally and passed to Tesseract OCR when the page has no meaningful text layer.
 - Word `.docx`, plain-text, and Markdown sources are extracted locally.
 - Extracted passages are chunked, embedded with the configured local FastEmbed model, and stored in the user's local Study library.
@@ -24,6 +24,10 @@ If Tesseract is unavailable, text-native documents can still be imported. Scanne
 ## Local model downloads
 
 Faster-Whisper and FastEmbed may download their model files the first time they are used. These downloads are model assets only; course documents and transcripts are not uploaded. After download, inference and indexing run locally. For a fully offline first run, pre-populate the relevant local model caches before disconnecting from the network.
+
+## Notes PDF formatting
+
+The PDF renderer recognises the semantic HTML marker `<span class="supplementary">…</span>` and renders that passage in red. Use it for clearly labelled external research or model-supplied context, with a real source hyperlink/citation in the same passage. Ordinary course-source notes remain in the normal text colour.
 
 ## Current scope
 

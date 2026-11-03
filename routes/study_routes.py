@@ -802,6 +802,10 @@ def save_notes_as_pdf(payload: dict, owner: str) -> dict:
         leading=14, spaceBefore=3 * mm, spaceAfter=1.5 * mm,
     ))
     styles.add(ParagraphStyle(
+        name="StudyH4", parent=styles["Heading4"], fontName="StudySans-Bold", fontSize=10,
+        leading=13, spaceBefore=2 * mm, spaceAfter=1 * mm,
+    ))
+    styles.add(ParagraphStyle(
         name="StudyBody", parent=styles["BodyText"], fontName="StudySans", fontSize=9.5,
         leading=14, spaceAfter=2.5 * mm,
     ))
@@ -826,7 +830,7 @@ def save_notes_as_pdf(payload: dict, owner: str) -> dict:
         if tag in {"h1", "h2", "h3"}:
             story.append(Paragraph(element.decode_contents(), styles[f"Study{tag.upper()}"]))
         elif tag in {"h4"}:
-            story.append(Paragraph(element.decode_contents(), styles["Heading4"]))
+            story.append(Paragraph(element.decode_contents(), styles["StudyH4"]))
         elif tag == "p":
             story.append(Paragraph(element.decode_contents(), styles["StudyBody"]))
         elif tag in {"ul", "ol"}:

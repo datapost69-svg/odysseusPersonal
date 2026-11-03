@@ -992,6 +992,7 @@ def setup_history_routes(session_manager, upload_handler=None) -> APIRouter:
                 "auto_compact_threshold": auto_threshold,
                 "memory_extraction_enabled": getattr(session, "memory_extraction_enabled", True) is not False,
                 "memory_injection_enabled": getattr(session, "memory_injection_enabled", True) is not False,
+                "isolated_memory": getattr(session, "isolated_memory", False) is True,
                 "skill_injection_enabled": getattr(session, "skill_injection_enabled", True) is not False,
                 "thinking_mode": (getattr(session, "thinking_mode", "") or "off") if thinking_supported else "off",
                 "thinking_supported": thinking_supported,

@@ -118,16 +118,22 @@ def setup_memory_routes(memory_manager: MemoryManager, session_manager: SessionM
         text = (memory_data.text or "").strip()
         if not text:
             raise HTTPException(400, "empty memory")
-        user_mem = memory_manager.load(owner=user)
-        if memory_manager.find_duplicates(text, user_mem):
-            return {"ok": True, "count": len(user_mem), "message": "Memory already exists"}
 
+        session_obj = None
         if memory_data.session_id:
             try:
                 session_obj = session_manager.get_session(memory_data.session_id)
             except KeyError:
                 raise HTTPException(404, "Session not found")
             _assert_session_owner(session_obj, user)
+
+        isolated = bool(session_obj and getattr(session_obj, "isolated_memory", False))
+        user_mem = memory_manager.load(
+            owner=user,
+            session_id=memory_data.session_id if isolated else None,
+        )
+        if memory_manager.find_duplicates(text, user_mem):
+            return {"ok": True, "count": len(user_mem), "message": "Memory already exists"}
 
         new_entry = memory_manager.add_entry(text, memory_data.source, memory_data.category, owner=user)
         if memory_data.session_id:

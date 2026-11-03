@@ -75,3 +75,20 @@
 .study-source-citation small { font-size:10px; opacity:.6; }
 .study-source-citation p { margin:6px 0 0; font-size:11px; line-height:1.5; opacity:.78; white-space:pre-wrap; }
 .study-panel button:disabled { opacity:.55; cursor:wait; }
+
+.study-panel #study-vault-path { min-width:0; flex:1; }
+.study-panel #study-material-type,
+.study-panel #study-note-type { min-width:170px; }
+.study-panel #study-note-brief {
+  width:100%; min-height:58px; box-sizing:border-box; resize:vertical;
+  padding:10px 11px; border:1px solid var(--border); border-radius:7px;
+  background:var(--input-bg,var(--panel)); color:var(--fg); font:inherit;
+  font-size:12px; line-height:1.5;
+}
+.study-note-preview {
+  margin-top:10px; padding:12px; max-height:360px; overflow:auto;
+  border:1px solid var(--border); border-radius:7px;
+  background:color-mix(in srgb,var(--fg) 3%,var(--panel));
+  color:var(--fg); font:11px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;
+  white-space:pre-wrap; overflow-wrap:anywhere;
+}

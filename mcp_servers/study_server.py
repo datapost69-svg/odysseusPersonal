@@ -75,6 +75,11 @@ async def list_tools() -> list[Tool]:
         Tool(name="study_list_modules",
              description="List the authenticated user's local study modules. Read-only.",
              inputSchema={"type":"object","properties":{},"additionalProperties":False}),
+        Tool(name="study_list_sources",
+             description="List imported source files in one module, including readings, slides, seminar sheets and timestamped transcripts. Returns source IDs needed by study_get_source and study_get_transcript. Read-only.",
+             inputSchema={"type":"object","properties":{
+                 "module_id":{"type":"string"}},
+                 "required":["module_id"],"additionalProperties":False}),
         Tool(name="study_search_material",
              description="Search the authenticated user's local study library semantically across all modules or one selected module. Returns excerpts with module, source, material_type (reading, slides, seminar_sheet or other), jurisdiction and page/slide/timestamp references. For targeted seminar preparation, readings are primary; seminar sheets guide topic selection; lectures and slides are supplementary. Never use this workflow to draft answers to seminar questions. Read-only.",
              inputSchema={"type":"object","properties":{
@@ -120,6 +125,23 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
         if name == "study_list_modules":
             return _text({"modules": study._read_modules(root), "storage":"local"})
+
+        if name == "study_list_sources":
+            module_id = str(args.get("module_id") or "").strip()
+            if not module_id:
+                raise ValueError("module_id is required.")
+            study._module(root, module_id)
+            folder = root / "modules" / module_id / "sources"
+            rows = []
+            if folder.exists():
+                for source_path in folder.glob("*.json"):
+                    try:
+                        item = json.loads(source_path.read_text(encoding="utf-8"))
+                        rows.append({key: value for key, value in item.items() if key != "chunks"})
+                    except (OSError, json.JSONDecodeError):
+                        logger.warning("Skipping unreadable study source %s", source_path.name)
+            rows.sort(key=lambda item: item.get("created_at", ""), reverse=True)
+            return _text({"module_id": module_id, "sources": rows, "count": len(rows)})
 
         if name == "study_search_material":
             query = str(args.get("query") or "").strip()

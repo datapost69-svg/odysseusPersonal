@@ -413,7 +413,7 @@ async def import_source(
 ):
     root = _owner_root(owner)
     _module(root, module_id)
-    material_type = material_type if material_type in {"reading", "slides", "other"} else "other"
+    material_type = material_type if material_type in {"reading", "slides", "seminar_sheet", "other"} else "other"
     jurisdiction = jurisdiction if jurisdiction in JURISDICTIONS else "unknown"
     suffix = Path(file.filename or "").suffix.lower()
     allowed = {".pdf", ".pptx", ".docx", ".txt", ".md"}

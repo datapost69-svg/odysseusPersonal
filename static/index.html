@@ -2728,42 +2728,13 @@
           <div id="study-search-results" class="study-lecture-list" style="margin-top:8px"></div>
         </section>
         <section class="study-card">
-          <div class="study-label">Ask your study library</div>
-          <div class="study-row">
-            <select id="study-model-select" aria-label="Local Ollama model"><option value="">Checking local models…</option></select>
-          </div>
-          <textarea id="study-question" rows="3" placeholder="Ask a question about your lectures and course materials. Answers are grounded in retrieved passages."></textarea>
-          <label class="study-all-modules"><input id="study-ask-all-modules" type="checkbox" checked> Search all modules</label>
-          <div class="study-row" style="justify-content:flex-end">
-            <button id="study-ask-button" type="button">Ask library</button>
-          </div>
-          <div id="study-answer" class="study-answer hidden" aria-live="polite"></div>
-          <div id="study-answer-sources" class="study-answer-sources"></div>
-          <p class="study-muted">Uses only your local library and a model running in Ollama on this device. If the sources do not support an answer, it should say so.</p>
-        </section>
-        <section class="study-card">
           <div class="study-label">Obsidian vault</div>
           <div class="study-row">
             <input id="study-vault-path" type="text" placeholder="Full path to your existing Obsidian vault folder">
             <button id="study-vault-save" type="button">Save location</button>
           </div>
-          <p class="study-muted">Your vault stays on this device. Odysseus writes Markdown notes into a folder for the selected module.</p>
+          <p class="study-muted">Your vault stays on this device. Use your Odysseus Study Skill to retrieve course material, compose notes in the existing agent, and save the finished Markdown through the Study MCP tool.</p>
           <div id="study-vault-status" class="study-muted">Obsidian vault not configured.</div>
-        </section>
-        <section class="study-card">
-          <div class="study-label">Generate study notes</div>
-          <div class="study-row">
-            <select id="study-note-type" aria-label="Note type">
-              <option value="general">General lecture notes</option>
-              <option value="targeted">Targeted seminar preparation</option>
-            </select>
-          </div>
-          <textarea id="study-note-brief" rows="2" placeholder="Optional: lecture topic or seminar sheet questions. Targeted notes will prepare you to reason about them, not answer them."></textarea>
-          <div class="study-row" style="justify-content:flex-end">
-            <button id="study-generate-notes" type="button">Generate and save to Obsidian</button>
-          </div>
-          <div id="study-note-status" class="study-muted" aria-live="polite"></div>
-          <div id="study-note-preview" class="study-note-preview hidden"></div>
         </section>
         <section class="study-card">
           <div class="study-label">Lecture recordings</div>

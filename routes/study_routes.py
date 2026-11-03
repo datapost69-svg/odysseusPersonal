@@ -250,6 +250,8 @@ def _extract_source(path: Path, suffix: str) -> list[dict]:
                 if warnings:
                     row["warnings"] = warnings
                 pages.append(row)
+        if pdfium_doc is not None:
+            pdfium_doc.close()
     elif suffix == ".pptx":
         from pptx import Presentation
         for number, slide in enumerate(Presentation(str(path)).slides, 1):
@@ -260,6 +262,25 @@ def _extract_source(path: Path, suffix: str) -> list[dict]:
                     bits.append(shape.text)
                 if getattr(shape, "has_table", False):
                     bits.extend(cell.text for row in shape.table.rows for cell in row.cells)
+                if getattr(shape, "has_chart", False):
+                    try:
+                        chart = shape.chart
+                        if chart.has_title:
+                            bits.append("Chart title: " + chart.chart_title.text_frame.text)
+                        categories = []
+                        try:
+                            categories = [str(category.label) for category in chart.plots[0].categories]
+                        except (AttributeError, IndexError, TypeError):
+                            pass
+                        for series in chart.series:
+                            values = list(series.values)
+                            if categories and len(categories) == len(values):
+                                pairs = [f"{label}: {value}" for label, value in zip(categories, values)]
+                                bits.append(f"Chart series {series.name}: " + "; ".join(pairs))
+                            else:
+                                bits.append(f"Chart series {series.name}: " + ", ".join(str(value) for value in values))
+                    except (AttributeError, IndexError, TypeError, ValueError):
+                        logger.warning("Could not extract a PowerPoint chart on slide %s", number)
                 # OCR text embedded as screenshots, scanned diagrams, or images.
                 if getattr(shape, "shape_type", None) == 13:  # MSO_SHAPE_TYPE.PICTURE
                     try:

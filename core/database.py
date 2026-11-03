@@ -258,6 +258,7 @@ class Session(TimestampMixin, Base):
             'archived': self.archived,
             'memory_extraction_enabled': self.memory_extraction_enabled is not False,
             'memory_injection_enabled': self.memory_injection_enabled is not False,
+            'isolated_memory': self.isolated_memory is True,
             'skill_injection_enabled': self.skill_injection_enabled is not False,
             'thinking_mode': self.thinking_mode or '',
             'temperature_override': self.temperature_override,

@@ -738,7 +738,7 @@ def save_notes_as_pdf(payload: dict, owner: str) -> dict:
     # Prefer an installed Unicode font (Arial on Windows, DejaVu Sans on
     # Linux). ReportLab's bundled Vera fallback is deliberately last: it is
     # reliable for basic Latin but does not cover every academic character.
-    windows_fonts = Path(os.getenv("WINDIR", r"C:\\Windows")) / "Fonts"
+    windows_fonts = Path(os.getenv("WINDIR", r"C:\Windows")) / "Fonts"
     font_sets = [
         (windows_fonts / "arial.ttf", windows_fonts / "arialbd.ttf",
          windows_fonts / "ariali.ttf", windows_fonts / "arialbi.ttf"),

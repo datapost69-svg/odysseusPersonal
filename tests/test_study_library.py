@@ -332,15 +332,15 @@ def test_subtitle_parser_preserves_srt_and_webvtt_timestamps():
     import routes.study_routes as study
 
     srt = (
-        "1\\n00:00:01,200 --> 00:00:03,400\\n"
-        "The lecturer introduces judicial review.\\n\\n"
-        "2\\n00:01:02,000 --> 00:01:05,500\\n"
-        "The second principle is proportionality.\\n"
+        "1\n00:00:01,200 --> 00:00:03,400\n"
+        "The lecturer introduces judicial review.\n\n"
+        "2\n00:01:02,000 --> 00:01:05,500\n"
+        "The second principle is proportionality.\n"
     )
     vtt = (
-        "WEBVTT\\n\\n"
-        "00:00:04.000 --> 00:00:06.250\\n"
-        "<v Lecturer>We now turn to law &amp; order.</v>\\n"
+        "WEBVTT\n\n"
+        "00:00:04.000 --> 00:00:06.250\n"
+        "<v Lecturer>We now turn to law &amp; order.</v>\n"
     )
 
     srt_segments = study._parse_subtitle_transcript(srt)
@@ -367,11 +367,11 @@ def test_import_subtitle_transcript_saves_timestamped_segments(tmp_path, monkeyp
     root = study._owner_root("student")
     study._write_json(root / "modules.json", [{"id": "law", "name": "Public Law"}])
     subtitle = (
-        "WEBVTT\\n\\n"
-        "00:00:10.000 --> 00:00:12.500\\n"
-        "The lecturer defines the rule of law.\\n\\n"
-        "00:00:13.000 --> 00:00:15.000\\n"
-        "The principle is developed in the next case.\\n"
+        "WEBVTT\n\n"
+        "00:00:10.000 --> 00:00:12.500\n"
+        "The lecturer defines the rule of law.\n\n"
+        "00:00:13.000 --> 00:00:15.000\n"
+        "The principle is developed in the next case.\n"
     )
     upload = UploadFile(filename="Week 1 lecture.vtt", file=BytesIO(subtitle.encode("utf-8")))
 

@@ -164,6 +164,29 @@ def test_semantic_index_preserves_material_classification(tmp_path, monkeypatch)
     assert rows[0]["material_type"] == "reading"
 
 
+
+def test_semantic_index_preserves_seminar_sheet_classification(tmp_path, monkeypatch):
+    import json
+    import numpy as np
+    import routes.study_routes as study
+
+    class FakeEmbedder:
+        model = "fake-local"
+        def encode(self, texts, normalize_embeddings=True):
+            return np.asarray([[1.0, 0.0] for _ in texts], dtype="float32")
+
+    monkeypatch.setattr(study, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(study, "_study_embedder", FakeEmbedder())
+    root = study._owner_root("student")
+    study._index_records(root, "law", [{
+        "source_id": "seminar-1", "source_type": "document", "material_type": "seminar_sheet",
+        "title": "Seminar 1", "location": "p. 1", "text": "Discuss judicial review",
+    }])
+    rows = json.loads(study._semantic_index_path(root, "law").read_text(encoding="utf-8"))
+    assert rows[0]["material_type"] == "seminar_sheet"
+
+
+
 def test_safe_note_filename_removes_path_components():
     from routes.study_routes import _safe_note_filename
     assert "/" not in _safe_note_filename("../../Criminal Law: Seminar 2")

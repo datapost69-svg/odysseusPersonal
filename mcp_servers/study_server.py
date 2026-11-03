@@ -35,6 +35,10 @@ def _text(value) -> list[TextContent]:
     rendered = json.dumps(value, ensure_ascii=False, indent=2, default=str)
     if len(rendered) > MAX_RESULT_CHARS:
         rendered = rendered[:MAX_RESULT_CHARS] + "\n[Truncated. Retrieve a narrower source or passage.]"
+    # Odysseus normalises stdio MCP errors when TextContent begins with Error:.
+    # Preserve the structured payload while ensuring failures are not reported as success.
+    if isinstance(value, dict) and value.get("error"):
+        rendered = "Error: " + rendered
     return [TextContent(type="text", text=rendered)]
 
 

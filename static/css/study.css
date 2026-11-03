@@ -38,3 +38,11 @@
  .study-header,.study-body { padding-left:14px; padding-right:14px; }
  .study-lecture-row { align-items:flex-start; flex-direction:column; gap:3px; }
 }
+
+.study-import-label {
+  display:inline-flex; align-items:center; justify-content:center; padding:8px 12px;
+  border:1px solid var(--border); border-radius:6px; font-size:12px; cursor:pointer;
+  background:color-mix(in srgb,var(--fg) 5%,var(--panel));
+}
+.study-import-label:hover { border-color:var(--accent,var(--red)); }
+.study-panel .study-muted a { color:var(--accent,var(--red)); }

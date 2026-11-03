@@ -100,3 +100,14 @@ def test_study_mcp_transcript_rejects_invalid_pagination(tmp_path, monkeypatch):
     }))
 
     assert "segment_offset must be a non-negative integer" in result[0].text
+
+
+def test_study_mcp_errors_are_marked_as_tool_failures():
+    from mcp_servers import study_server
+
+    result = asyncio.run(study_server.call_tool("unknown_study_tool", {
+        "_odysseus_owner": "alice",
+    }))
+
+    assert result[0].text.startswith("Error: ")
+    assert "Unknown study tool" in result[0].text

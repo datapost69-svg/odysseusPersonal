@@ -840,6 +840,10 @@ from services.stt import get_stt_service
 stt_service = get_stt_service()
 from routes.stt_routes import setup_stt_routes
 app.include_router(setup_stt_routes(stt_service))
+
+# Local study library (strictly local storage and local-only transcription)
+from routes.study_routes import setup_study_routes
+app.include_router(setup_study_routes())
 logger.info("STT service initialized (provider managed via settings)")
 
 # Documents (artifacts/canvas)

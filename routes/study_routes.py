@@ -215,6 +215,38 @@ def _ocr_image(image) -> str:
         ) from exc
 
 
+
+def _parse_subtitle_transcript(text: str) -> list[dict]:
+    """Parse WebVTT or SubRip captions into timestamped transcript segments."""
+    rows = []
+    blocks = re.split(r"\\r?\\n\\s*\\r?\\n", text.replace("\\ufeff", "").strip())
+    timestamp = re.compile(
+        r"(?:(\\d{1,2}):)?(\\d{2}):(\\d{2})[,.](\\d{3})\\s*-->\\s*"
+        r"(?:(\\d{1,2}):)?(\\d{2}):(\\d{2})[,.](\\d{3})"
+    )
+    for block in blocks:
+        lines = [line.strip() for line in block.splitlines() if line.strip()]
+        match_index = next((i for i, line in enumerate(lines) if "-->" in line), None)
+        if match_index is None:
+            continue
+        match = timestamp.search(lines[match_index])
+        if not match:
+            continue
+        groups = match.groups()
+        start = (int(groups[0] or 0) * 3600 + int(groups[1]) * 60 + int(groups[2])
+                 + int(groups[3]) / 1000)
+        end = (int(groups[4] or 0) * 3600 + int(groups[5]) * 60 + int(groups[6])
+               + int(groups[7]) / 1000)
+        caption_lines = lines[match_index + 1:]
+        # Strip common WebVTT markup while preserving the words.
+        caption = re.sub(r"<[^>]+>", "", " ".join(caption_lines))
+        caption = re.sub(r"&(?:amp|lt|gt|nbsp);", " ", caption)
+        caption = re.sub(r"\\s+", " ", caption).strip()
+        if caption and end >= start:
+            rows.append({"start": round(start, 3), "end": round(end, 3), "text": caption})
+    return rows
+
+
 def _extract_source(path: Path, suffix: str) -> list[dict]:
     """Extract text locally while preserving page/slide/paragraph locations.
 
@@ -325,6 +357,12 @@ def _extract_source(path: Path, suffix: str) -> list[dict]:
         text = path.read_text(encoding="utf-8-sig", errors="replace")
         if text.strip():
             pages.append({"location": "text", "text": text.strip()})
+    elif suffix in {".srt", ".vtt"}:
+        text = path.read_text(encoding="utf-8-sig", errors="replace")
+        for segment in _parse_subtitle_transcript(text):
+            start, end = int(segment["start"]), int(segment["end"])
+            location = f"lecture {start // 3600:02d}:{(start // 60) % 60:02d}:{start % 60:02d}–{end // 3600:02d}:{(end // 60) % 60:02d}:{end % 60:02d}"
+            pages.append({"location": location, "text": segment["text"]})
     return pages
 
 def _source_chunks(pages: list[dict], size: int = 1400, overlap: int = 180) -> list[dict]:
@@ -507,12 +545,12 @@ async def import_source(
 ):
     root = _owner_root(owner)
     _module(root, module_id)
-    material_type = material_type if material_type in {"reading", "slides", "seminar_sheet", "other"} else "other"
+    material_type = material_type if material_type in {"reading", "slides", "seminar_sheet", "transcript", "other"} else "other"
     jurisdiction = jurisdiction if jurisdiction in JURISDICTIONS else "unknown"
     suffix = Path(file.filename or "").suffix.lower()
-    allowed = {".pdf", ".pptx", ".docx", ".txt", ".md"}
+    allowed = {".pdf", ".pptx", ".docx", ".txt", ".md", ".srt", ".vtt"}
     if suffix not in allowed:
-        raise HTTPException(400, "Supported files: PDF, PowerPoint, Word, TXT and Markdown.")
+        raise HTTPException(400, "Supported files: PDF, PowerPoint, Word, TXT, Markdown, SRT and WebVTT transcripts.")
     raw = await file.read(100 * 1024 * 1024 + 1)
     if not raw:
         raise HTTPException(400, "The selected file is empty")
@@ -537,10 +575,24 @@ async def import_source(
             "No extractable text was found. If this is a scanned PDF or image-only PowerPoint, install local Tesseract OCR and try again.",
         )
     chunks = _source_chunks(pages)
+    title = Path(safe_name).stem.replace("-", " ")
+    if suffix in {".srt", ".vtt"}:
+        subtitle_text = original.read_text(encoding="utf-8-sig", errors="replace")
+        segments = _parse_subtitle_transcript(subtitle_text)
+        if not segments:
+            raise HTTPException(422, "No valid timestamped captions were found in this transcript.")
+        transcript_record = {
+            "id": source_id, "source_id": source_id, "module_id": module_id,
+            "title": title, "created_at": datetime.now(timezone.utc).isoformat(),
+            "language": None, "duration": max(row["end"] for row in segments),
+            "jurisdiction": jurisdiction, "segments": segments,
+        }
+        transcript_dir = root / "modules" / module_id / "transcripts"
+        _write_json(transcript_dir / f"{source_id}.json", transcript_record)
     record = {
         "id": source_id,
         "module_id": module_id,
-        "title": Path(safe_name).stem.replace("-", " "),
+        "title": title,
         "filename": safe_name,
         "format": suffix.lstrip("."),
         "material_type": material_type,
@@ -555,7 +607,7 @@ async def import_source(
     try:
         await run_in_threadpool(
             _index_records, root, module_id, [
-                {"source_id": source_id, "source_type": "document", "material_type": material_type, "jurisdiction": jurisdiction,
+                {"source_id": source_id, "source_type": "lecture" if suffix in {".srt", ".vtt"} else "document", "material_type": material_type, "jurisdiction": jurisdiction,
                  "title": record["title"], "location": chunk["location"], "text": chunk["text"]}
                 for chunk in chunks
             ]

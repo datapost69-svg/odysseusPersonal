@@ -6,7 +6,6 @@ has no web-search, cloud transcription, or remote model integration.
 import hashlib
 import json
 import logging
-import math
 import os
 
 import httpx
@@ -543,23 +542,29 @@ async def semantic_search_study_library(
     return {"results": hits, "count": len(hits), "scope": "local-semantic"}
 
 
+async def _installed_local_ollama_models() -> list[str]:
+    """Read installed models from loopback Ollama and exclude cloud-backed tags."""
+    async with httpx.AsyncClient(timeout=httpx.Timeout(4.0, connect=2.0)) as client:
+        response = await client.get("http://127.0.0.1:11434/api/tags")
+        response.raise_for_status()
+        data = response.json()
+    models = []
+    for row in data.get("models", []):
+        name = str(row.get("name") or "")
+        lowered = name.casefold()
+        if not name or any(marker in lowered for marker in ("embed", "whisper", "tts", "rerank", ":cloud", "-cloud")):
+            continue
+        models.append(name)
+    return models
+
+
 @router.get("/models")
 async def study_local_models(owner: str = Depends(require_user)):
-    """List models available on the local Ollama instance only."""
+    """List chat models installed on the local Ollama instance only."""
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(4.0, connect=2.0)) as client:
-            response = await client.get("http://127.0.0.1:11434/api/tags")
-            response.raise_for_status()
-            data = response.json()
+        models = await _installed_local_ollama_models()
     except Exception:
         return {"available": False, "models": [], "provider": "local-ollama"}
-    models = [
-        row.get("name") for row in data.get("models", [])
-        if row.get("name") and not any(
-            marker in row.get("name", "").casefold()
-            for marker in ("embed", "whisper", "tts", "rerank")
-        )
-    ]
     return {"available": bool(models), "models": models, "provider": "local-ollama"}
 
 
@@ -572,6 +577,12 @@ async def ask_study_library(payload: dict, owner: str = Depends(require_user)):
         raise HTTPException(400, "Enter a question of up to 4,000 characters.")
     if not model or len(model) > 200:
         raise HTTPException(400, "Choose a model installed in your local Ollama instance.")
+    try:
+        installed_models = await _installed_local_ollama_models()
+    except Exception as exc:
+        raise HTTPException(503, "Could not reach local Ollama at 127.0.0.1:11434.") from exc
+    if model not in installed_models:
+        raise HTTPException(400, "That model is not an installed local Ollama chat model.")
     root = _owner_root(owner)
     try:
         hits = await run_in_threadpool(

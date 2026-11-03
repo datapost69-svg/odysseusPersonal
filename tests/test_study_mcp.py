@@ -105,22 +105,19 @@ def test_study_mcp_transcript_rejects_invalid_pagination(tmp_path, monkeypatch):
 
 
 
-def test_study_mcp_saves_agent_authored_notes_to_the_configured_vault(tmp_path, monkeypatch):
+def test_study_mcp_saves_agent_authored_notes_as_local_pdf(tmp_path, monkeypatch):
     from mcp_servers import study_server
 
     monkeypatch.setattr(study_routes, "DATA_DIR", str(tmp_path))
     root = study_routes._owner_root("alice")
     study_routes._write_json(root / "modules.json", [{"id": "law", "name": "Public Law"}])
-    vault = tmp_path / "vault"
-    (vault / ".obsidian").mkdir(parents=True)
-    study_routes._write_json(root / "obsidian.json", {"vault_path": str(vault)})
 
-    markdown = "# Judicial Review\\n\\nThese are notes composed by Odysseus.\\n"
+    markdown = "# Judicial Review\n\nThese are notes composed by Odysseus.\n"
     result = asyncio.run(study_server.call_tool("study_save_notes", {
         "_odysseus_owner": "alice",
         "module_id": "law",
-        "title": "../../Seminar: Judicial Review",
-        "note_type": "targeted",
+        "title": "Judicial Review",
+        "note_type": "seminar",
         "markdown": markdown,
     }))
     payload = json.loads(result[0].text)
@@ -128,33 +125,31 @@ def test_study_mcp_saves_agent_authored_notes_to_the_configured_vault(tmp_path, 
     assert payload["saved"] is True
     saved_path = Path(payload["path"])
     assert saved_path.is_file()
-    assert saved_path.parent == vault / "Public Law"
-    assert saved_path.read_text(encoding="utf-8") == markdown
-    assert saved_path.name.endswith(".md")
-    assert "Seminar Judicial Review" in saved_path.name
+    assert saved_path.parent == root / "modules" / "law" / "Seminar Notes"
+    assert saved_path.name == "Judicial Review - notes.pdf"
+    assert saved_path.read_bytes().startswith(b"%PDF-")
+    assert payload["format"] == "pdf"
 
 
-def test_study_save_notes_does_not_overwrite_existing_notes(tmp_path, monkeypatch):
+def test_study_pdf_notes_do_not_overwrite_existing_files(tmp_path, monkeypatch):
     monkeypatch.setattr(study_routes, "DATA_DIR", str(tmp_path))
     root = study_routes._owner_root("alice")
     study_routes._write_json(root / "modules.json", [{"id": "law", "name": "Public Law"}])
-    vault = tmp_path / "vault"
-    (vault / ".obsidian").mkdir(parents=True)
-    study_routes._write_json(root / "obsidian.json", {"vault_path": str(vault)})
 
     payload = {
         "module_id": "law",
-        "title": "Lecture Notes",
-        "note_type": "general",
+        "title": "Lecture 1",
+        "note_type": "lecture",
         "markdown": "# First version",
     }
-    first = study_routes.save_notes_to_vault(payload, "alice")
+    first = study_routes.save_notes_as_pdf(payload, "alice")
     payload["markdown"] = "# Second version"
-    second = study_routes.save_notes_to_vault(payload, "alice")
+    second = study_routes.save_notes_as_pdf(payload, "alice")
 
-    assert Path(first["path"]).read_text(encoding="utf-8") == "# First version\\n"
-    assert Path(second["path"]).read_text(encoding="utf-8") == "# Second version\\n"
+    assert Path(first["path"]).read_bytes().startswith(b"%PDF-")
+    assert Path(second["path"]).read_bytes().startswith(b"%PDF-")
     assert first["path"] != second["path"]
+    assert Path(first["path"]).parent == root / "modules" / "law" / "Lecture Notes"
 
 
 def test_study_mcp_errors_are_marked_as_tool_failures():

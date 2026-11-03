@@ -600,55 +600,153 @@ def _safe_note_filename(value: str) -> str:
     stem = re.sub(r"[^A-Za-z0-9._ -]+", "", value).strip(" .-_")
     return (stem or "Study notes")[:100]
 
-def save_notes_to_vault(payload: dict, owner: str) -> dict:
-    """Save Markdown composed by Odysseus into the owner's configured local vault.
 
-    This deliberately does not call an LLM: note composition belongs to
-    Odysseus's existing agent and user-managed Skills.
+def save_notes_as_pdf(payload: dict, owner: str) -> dict:
+    """Render agent-authored Markdown to a local, module-organised PDF.
+
+    Odysseus owns note composition. This function only renders and stores the
+    finished notes; it never calls a model or sends course material remotely.
     """
     module_id = str(payload.get("module_id") or "").strip()
     title = str(payload.get("title") or "").strip()
     note_type = str(payload.get("note_type") or "").strip()
-    markdown = payload.get("markdown")
+    markdown_text = payload.get("markdown")
     if not module_id:
         raise ValueError("module_id is required.")
     if not title or len(title) > 160:
         raise ValueError("title must contain 1–160 characters.")
-    if note_type not in {"general", "targeted"}:
-        raise ValueError("note_type must be 'general' or 'targeted'.")
-    if not isinstance(markdown, str) or not markdown.strip():
+    if note_type not in {"lecture", "seminar"}:
+        raise ValueError("note_type must be 'lecture' or 'seminar'.")
+    if not isinstance(markdown_text, str) or not markdown_text.strip():
         raise ValueError("markdown must contain the completed study notes.")
-    if len(markdown) > 200000:
+    if len(markdown_text) > 200000:
         raise ValueError("markdown exceeds the 200,000-character limit.")
+
+    # ReportLab is a local dependency; no cloud conversion service is used.
+    from io import BytesIO
+    import markdown as markdown_lib
+    import nh3
+    from bs4 import BeautifulSoup
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Preformatted, Table, TableStyle,
+    )
 
     root = _owner_root(owner)
     module = _module(root, module_id)
-    config_path = root / "obsidian.json"
-    if not config_path.is_file():
-        raise ValueError("Configure your local Obsidian vault first.")
-    config = json.loads(config_path.read_text(encoding="utf-8"))
-    try:
-        vault = Path(config.get("vault_path", "")).expanduser().resolve(strict=True)
-    except (OSError, RuntimeError):
-        raise ValueError("The configured Obsidian vault is no longer available.")
-    if not vault.is_dir() or not (vault / ".obsidian").is_dir():
-        raise ValueError("The configured Obsidian vault is no longer available.")
+    module_dir = (root / "modules" / module_id).resolve()
+    output_folder = module_dir / ("Lecture Notes" if note_type == "lecture" else "Seminar Notes")
+    output_folder.mkdir(parents=True, exist_ok=True)
+    output_folder = output_folder.resolve()
+    if not output_folder.is_relative_to(module_dir):
+        raise ValueError("The notes folder resolves outside the selected module.")
 
-    module_folder = _safe_note_filename(module.get("name", "Module"))
-    note_folder = vault / module_folder
-    note_folder.mkdir(parents=True, exist_ok=True)
-    note_folder = note_folder.resolve(strict=True)
-    if not note_folder.is_relative_to(vault):
-        raise ValueError("The module note folder resolves outside the configured vault.")
-
-    filename = _safe_note_filename(title) + ".md"
-    destination = note_folder / filename
+    safe_title = _safe_note_filename(title)
+    filename = f"{safe_title} - notes.pdf"
+    destination = output_folder / filename
     if destination.exists():
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        unique = uuid.uuid4().hex[:8]
-        destination = note_folder / f"{_safe_note_filename(title)}-{stamp}-{unique}.md"
-    with destination.open("x", encoding="utf-8", newline="\n") as handle:
-        handle.write(markdown.strip() + "\n")
+        destination = output_folder / f"{safe_title} - notes ({stamp}-{uuid.uuid4().hex[:6]}).pdf"
+
+    html = markdown_lib.markdown(
+        markdown_text, extensions=["tables", "fenced_code", "sane_lists"]
+    )
+    # Only a small, safe subset of inline HTML is retained for ReportLab.
+    html = nh3.clean(
+        html,
+        tags={"p", "strong", "b", "em", "i", "u", "a", "code", "br",
+              "h1", "h2", "h3", "h4", "ul", "ol", "li", "pre",
+              "blockquote", "table", "thead", "tbody", "tr", "th", "td"},
+        attributes={"a": {"href"}},
+        url_schemes={"http", "https", "mailto"},
+    )
+    soup = BeautifulSoup(html, "html.parser")
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(
+        name="StudyTitle", parent=styles["Title"], fontName="Helvetica-Bold",
+        fontSize=20, leading=25, alignment=TA_CENTER, spaceAfter=8 * mm,
+    ))
+    styles.add(ParagraphStyle(
+        name="StudyH1", parent=styles["Heading1"], fontSize=16,
+        leading=20, spaceBefore=5 * mm, spaceAfter=2 * mm,
+    ))
+    styles.add(ParagraphStyle(
+        name="StudyH2", parent=styles["Heading2"], fontSize=13,
+        leading=17, spaceBefore=4 * mm, spaceAfter=2 * mm,
+    ))
+    styles.add(ParagraphStyle(
+        name="StudyH3", parent=styles["Heading3"], fontSize=11,
+        leading=14, spaceBefore=3 * mm, spaceAfter=1.5 * mm,
+    ))
+    styles.add(ParagraphStyle(
+        name="StudyBody", parent=styles["BodyText"], fontSize=9.5,
+        leading=14, spaceAfter=2.5 * mm,
+    ))
+    styles.add(ParagraphStyle(
+        name="StudySmall", parent=styles["BodyText"], fontSize=8,
+        leading=10,
+    ))
+    story = [Paragraph(title, styles["StudyTitle"])]
+    for element in soup.contents:
+        if not getattr(element, "name", None):
+            continue
+        tag = element.name.lower()
+        if tag in {"h1", "h2", "h3"}:
+            story.append(Paragraph(element.decode_contents(), styles[f"Study{tag.upper()}"]))
+        elif tag in {"h4"}:
+            story.append(Paragraph(element.decode_contents(), styles["Heading4"]))
+        elif tag == "p":
+            story.append(Paragraph(element.decode_contents(), styles["StudyBody"]))
+        elif tag in {"ul", "ol"}:
+            for index, item in enumerate(element.find_all("li", recursive=False), 1):
+                bullet = "•" if tag == "ul" else f"{index}."
+                story.append(Paragraph(
+                    item.decode_contents(), styles["StudyBody"], bulletText=bullet
+                ))
+        elif tag == "pre":
+            story.append(Preformatted(element.get_text(), styles["Code"]))
+        elif tag == "blockquote":
+            story.append(Paragraph(
+                element.get_text(" ", strip=True), styles["Quote"]
+            ))
+        elif tag == "table":
+            rows = []
+            for tr in element.find_all("tr"):
+                rows.append([
+                    Paragraph(cell.decode_contents(), styles["StudySmall"])
+                    for cell in tr.find_all(["th", "td"], recursive=False)
+                ])
+            if rows:
+                table = Table(rows, repeatRows=1, hAlign="LEFT")
+                table.setStyle(TableStyle([
+                    ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#B8B8B8")),
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EEEEEE")),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]))
+                story.extend([table, Spacer(1, 3 * mm)])
+        elif tag == "hr":
+            story.append(Spacer(1, 3 * mm))
+
+    buffer = BytesIO()
+    document = SimpleDocTemplate(
+        buffer, pagesize=A4, rightMargin=19 * mm, leftMargin=19 * mm,
+        topMargin=18 * mm, bottomMargin=18 * mm,
+        title=f"{title} - notes", author="Odysseus Study",
+    )
+    document.build(story)
+    pdf_bytes = buffer.getvalue()
+    if not pdf_bytes.startswith(b"%PDF-"):
+        raise RuntimeError("PDF generation did not produce a valid PDF.")
+    with destination.open("xb") as handle:
+        handle.write(pdf_bytes)
 
     return {
         "saved": True,
@@ -656,38 +754,6 @@ def save_notes_to_vault(payload: dict, owner: str) -> dict:
         "module": module.get("name"),
         "title": title,
         "note_type": note_type,
-        "characters": len(markdown),
+        "format": "pdf",
+        "bytes": len(pdf_bytes),
     }
-
-
-
-@router.get("/vault")
-async def get_obsidian_vault(owner: str = Depends(require_user)):
-    root = _owner_root(owner)
-    config_path = root / "obsidian.json"
-    try:
-        config = json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
-    except (OSError, json.JSONDecodeError):
-        config = {}
-    return {"configured": bool(config.get("vault_path")), "vault_path": config.get("vault_path", "")}
-
-
-@router.post("/vault")
-async def set_obsidian_vault(payload: dict, owner: str = Depends(require_user)):
-    raw_path = str(payload.get("vault_path") or "").strip()
-    if not raw_path or len(raw_path) > 1000:
-        raise HTTPException(400, "Enter the path to an existing Obsidian vault folder.")
-    vault = Path(raw_path).expanduser()
-    if not vault.is_absolute():
-        raise HTTPException(400, "Use the full folder path to your Obsidian vault.")
-    try:
-        vault = vault.resolve(strict=True)
-    except (OSError, RuntimeError):
-        raise HTTPException(400, "That vault folder does not exist or cannot be accessed.")
-    if not vault.is_dir():
-        raise HTTPException(400, "The selected path is not a folder.")
-    if not (vault / ".obsidian").is_dir():
-        raise HTTPException(400, "That folder does not appear to be an Obsidian vault (missing .obsidian folder).")
-    root = _owner_root(owner)
-    _write_json(root / "obsidian.json", {"vault_path": str(vault)})
-    return {"configured": True, "vault_path": str(vault)}

@@ -289,10 +289,12 @@ def _extract_source(path: Path, suffix: str) -> list[dict]:
                         image_text = _ocr_image(image)
                         if image_text:
                             bits.append(image_text)
-                    except RuntimeError as exc:
-                        # Keep the native slide text, but expose that image text
-                        # was skipped so the user knows the extraction is partial.
-                        warnings.append(str(exc))
+                    except Exception as exc:
+                        # Keep native slide text, but expose any image-OCR failure
+                        # (including unsupported SVG/EMF image formats) so the
+                        # user knows extraction may be partial.
+                        logger.warning("Slide-image OCR failed on slide %s: %s", number, exc)
+                        warnings.append(f"Slide-image OCR failed: {type(exc).__name__}: {exc}")
             # Include speaker notes where PowerPoint provides them.
             try:
                 notes = slide.notes_slide.notes_text_frame.text

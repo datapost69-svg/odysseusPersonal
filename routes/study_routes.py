@@ -378,6 +378,8 @@ def _semantic_search(root: Path, modules: list[dict], query: str, module_id: str
             if not isinstance(vector, list) or len(vector) != len(query_vector):
                 continue
             score = sum(float(a) * float(b) for a, b in zip(query_vector, vector))
+            if score <= 0:
+                continue
             hits.append({
                 "module": module.get("name"),
                 "module_id": module.get("id"),

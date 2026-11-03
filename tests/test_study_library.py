@@ -235,6 +235,8 @@ def test_powerpoint_extraction_includes_speaker_notes_and_image_ocr(tmp_path, mo
     from io import BytesIO
     from PIL import Image
     from pptx import Presentation
+    from pptx.chart.data import CategoryChartData
+    from pptx.enum.chart import XL_CHART_TYPE
     from pptx.util import Inches
     import routes.study_routes as study
 
@@ -244,6 +246,12 @@ def test_powerpoint_extraction_includes_speaker_notes_and_image_ocr(tmp_path, mo
     presentation = Presentation()
     slide = presentation.slides.add_slide(presentation.slide_layouts[6])
     slide.shapes.add_picture(image_buffer, Inches(1), Inches(1), width=Inches(1))
+    chart_data = CategoryChartData()
+    chart_data.categories = ["2024", "2025"]
+    chart_data.add_series("Attendance", (120, 145))
+    slide.shapes.add_chart(
+        XL_CHART_TYPE.COLUMN_CLUSTERED, Inches(2), Inches(1), Inches(4), Inches(3), chart_data
+    )
     slide.notes_slide.notes_text_frame.text = "Remember the lecturer's example."
     path = tmp_path / "lecture.pptx"
     presentation.save(path)
@@ -254,4 +262,7 @@ def test_powerpoint_extraction_includes_speaker_notes_and_image_ocr(tmp_path, mo
     assert len(pages) == 1
     assert pages[0]["location"] == "slide 1"
     assert "Text inside slide diagram" in pages[0]["text"]
+    assert "Attendance" in pages[0]["text"]
+    assert "120" in pages[0]["text"]
+    assert "145" in pages[0]["text"]
     assert "Remember the lecturer's example." in pages[0]["text"]

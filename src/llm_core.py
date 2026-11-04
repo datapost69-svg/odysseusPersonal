@@ -2154,6 +2154,50 @@ def _sanitize_llm_messages(messages: List[Dict]) -> List[Dict]:
     return merged
 
 
+def _repair_ministral_tool_turns(messages: List[Dict]) -> List[Dict]:
+    """Preserve complete tool rounds while satisfying Ministral role alternation.
+
+    The Ministral GGUF Jinja template does not count assistant tool calls or
+    tool results as assistant turns. After a completed tool round, a new user
+    turn may therefore need a neutral assistant continuation. Never change
+    the original tool outcome, tool IDs, or the user's messages.
+    """
+    repaired: List[Dict] = []
+    expected = "user"
+    pending_tool_round = False
+    for message in messages:
+        role = message.get("role")
+        if role == "system":
+            repaired.append(message)
+            continue
+        if role == "tool":
+            repaired.append(message)
+            continue
+        if role == "assistant" and message.get("tool_calls"):
+            repaired.append(message)
+            pending_tool_round = True
+            continue
+        if role == "user" and expected == "assistant" and pending_tool_round:
+            repaired.append({
+                "role": "assistant",
+                "content": "A tool was attempted; its result above determines whether it succeeded.",
+            })
+            expected = "user"
+            pending_tool_round = False
+        if role in ("user", "assistant") and role == expected:
+            expected = "assistant" if role == "user" else "user"
+            if role == "assistant":
+                pending_tool_round = False
+        repaired.append(message)
+    return repaired
+
+
+def _apply_ministral_role_compat(messages: List[Dict], model: str) -> List[Dict]:
+    if "ministral" not in (model or "").lower():
+        return messages
+    return _repair_ministral_tool_turns(messages)
+
+
 def _normalize_anthropic_url(url: str) -> str:
     """Ensure Anthropic URL points to /v1/messages."""
     url = url.rstrip("/")
@@ -2353,6 +2397,8 @@ def llm_call(url: str, model: str, messages: List[Dict], temperature: float = LL
         messages_copy = [{"role": "system", "content": "\n\n".join(sys_parts)}] + non_sys
     else:
         messages_copy = non_sys
+
+    messages_copy = _apply_ministral_role_compat(messages_copy, model)
 
     provider = _detect_provider(url)
     cache_key = _get_cache_key(
@@ -2672,6 +2718,8 @@ async def llm_call_async(
         messages_copy = [{"role": "system", "content": "\n\n".join(sys_parts)}] + non_sys
     else:
         messages_copy = non_sys
+
+    messages_copy = _apply_ministral_role_compat(messages_copy, model)
 
     # Non-streaming background callers historically inherited the 32k global
     # default even when the selected local endpoint exposed a smaller context
@@ -3026,6 +3074,8 @@ async def _stream_llm_inner(url: str, model: str, messages: List[Dict], temperat
         messages_copy = [{"role": "system", "content": "\n\n".join(sys_parts)}] + non_sys
     else:
         messages_copy = non_sys
+
+    messages_copy = _apply_ministral_role_compat(messages_copy, model)
 
     if provider == "anthropic":
         target_url = _normalize_anthropic_url(url)
